@@ -1,0 +1,28 @@
+{# Um comentário (ou resposta) do fórum. Usado por lista_questoes.html via {% include %}. #}
+{# O botão Responder abre um formulário (details/summary, funciona sem JavaScript) já com @autor. #}
+{# Espera 'comentario' anotado com total_curtidas e curtido (ver _comentarios_com_curtidas na view). #}
+<article class="comentario" id="comentario-{{ comentario.id }}">
+    <header class="comentario-cabecalho">
+        <strong class="comentario-autor">{{ comentario.usuario.username }}</strong>
+        <time datetime="{{ comentario.data_criacao|date:'c' }}">{{ comentario.data_criacao|date:'d/m/Y H:i' }}</time>
+    </header>
+    {# linebreaksbr mantém as quebras de linha; o texto é escapado (HTML digitado aparece como texto) #}
+    <p class="comentario-texto">{{ comentario.texto|linebreaksbr }}</p>
+
+    <div class="comentario-acoes">
+    {% url 'questoes:curtir_comentario' comentario.id as url_curtir %}
+    {% include 'questoes/_botao_curtir.html' with url=url_curtir ativo=comentario.curtido total=comentario.total_curtidas alvo='este comentário' %}
+
+    <details class="comentario-responder">
+        <summary>Responder</summary>
+        <form method="POST" action="{% url 'questoes:comentar_questao' comentario.questao_id %}" class="form-comentario">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <input type="hidden" name="resposta_a" value="{{ comentario.id }}">
+            <label class="visualmente-oculto" for="resposta-{{ comentario.id }}">Resposta para {{ comentario.usuario.username }}</label>
+            <textarea id="resposta-{{ comentario.id }}" name="texto" rows="3" maxlength="{{ comentario_tamanho_maximo }}" required>@{{ comentario.usuario.username }} </textarea>
+            <button type="submit" class="btn-submit">Publicar resposta</button>
+        </form>
+    </details>
+    </div>
+</article>

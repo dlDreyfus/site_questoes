@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}Ativar Conta - Simulado{% endblock %}
+
+{% block body_class %}pagina-login{% endblock %}
+
+{% block content %}
+<div class="login-box">
+    <h2>Ativar conta</h2>
+    <p class="login-texto">
+        Olá, <strong>{{ usuario.username }}</strong>! Clique no botão abaixo para confirmar seu e-mail e ativar sua conta.
+    </p>
+    {# Ativação só por POST (com csrf_token): abrir o link do e-mail, sozinho, não ativa a conta #}
+    <form method="POST">
+        {% csrf_token %}
+        <button type="submit">Ativar minha conta</button>
+    </form>
+</div>
+{% endblock %}

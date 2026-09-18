@@ -1,0 +1,26 @@
+{# Botão de voto (👍 Curtir ou 👎 Descurtir) + total, usado nos comentários e na resolução oficial. #}
+{# Parâmetros: url (rota do voto), ativo (bool: o usuário já votou assim), total (int), #}
+{# alvo (ex: "este comentário") e tipo ("curtir", padrão, ou "descurtir"). #}
+{# Sem JavaScript, envia o formulário e a página volta ao item; com JavaScript (static/js/forum.js), #}
+{# atualiza os botões e os totais sem recarregar. Os data-* levam os textos para o JavaScript. #}
+{% if tipo == 'descurtir' %}
+    {% firstof 'Descurtir' as rotulo_inativo %}{% firstof 'Descurtido' as rotulo_ativo %}
+    {% firstof '👎' as icone %}{% firstof 'descurtida' as unidade %}
+{% else %}
+    {% firstof 'Curtir' as rotulo_inativo %}{% firstof 'Curtido' as rotulo_ativo %}
+    {% firstof '👍' as icone %}{% firstof 'curtida' as unidade %}
+{% endif %}
+<form method="POST" action="{{ url }}" class="form-curtir" data-tipo="{{ tipo|default:'curtir' }}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button type="submit" class="btn-curtir" aria-pressed="{% if ativo %}true{% else %}false{% endif %}"
+            title="{% if ativo %}Clique para desfazer{% else %}{{ rotulo_inativo }} {{ alvo }}{% endif %}"
+            data-alvo="{{ alvo }}" data-rotulo-ativo="{{ rotulo_ativo }}" data-rotulo-inativo="{{ rotulo_inativo }}"
+            data-unidade="{{ unidade }}">
+        <span aria-hidden="true">{{ icone }}</span>
+        <span class="curtir-rotulo">{% if ativo %}{{ rotulo_ativo }}{% else %}{{ rotulo_inativo }}{% endif %}</span>
+    </button>
+    <span class="curtidas-total" aria-live="polite">
+        {{ total }}<span class="visualmente-oculto"> {{ unidade }}{{ total|pluralize }}</span>
+    </span>
+</form>

@@ -4,12 +4,12 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
 from django.db import IntegrityError
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
-from questoes.models import Alternativa, Banca, Cargo, HistoricoResolucao, Orgao, Questao
+from questoes.models import Alternativa, Banca, Cargo, HistoricoResolucao, Materia, Orgao, Questao, Topico
 
 
 class LoginTests(TestCase):
@@ -73,23 +73,42 @@ class CadastroTests(TestCase):
         self.assertEqual(mail.outbox[0].subject, 'Simulado - Ative sua conta')
         self.assertIn('/usuarios/ativar/', mail.outbox[0].body)
 
-    def test_link_ativa_a_conta_faz_login_e_mostra_boas_vindas(self):
+    def test_abrir_o_link_so_mostra_o_botao_sem_ativar(self):
+        # Filtros de e-mail/antivírus que "visitam" o link não podem ativar a conta
         self.cadastrar()
-        resposta = self.client.get(self.link_do_email(), follow=True)
+        resposta = self.client.get(self.link_do_email())
+        self.assertTemplateUsed(resposta, 'usuarios/ativar_conta.html')
+        self.assertContains(resposta, 'Ativar minha conta')
+        self.assertFalse(get_user_model().objects.get(username='novo_aluno').is_active)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_botao_ativa_a_conta_faz_login_e_mostra_boas_vindas(self):
+        self.cadastrar()
+        resposta = self.client.post(self.link_do_email(), follow=True)
         self.assertRedirects(resposta, reverse('questoes:lista_questoes'))
         usuario = get_user_model().objects.get(username='novo_aluno')
         self.assertTrue(usuario.is_active)
         self.assertEqual(resposta.context['user'], usuario)
         self.assertContains(resposta, 'Conta ativada com sucesso. Bem-vindo(a), novo_aluno!')
 
+    def test_ativacao_exige_csrf(self):
+        # Sem o token CSRF (ex: formulário forjado em outro site), o POST é recusado: evita login CSRF
+        self.cadastrar()
+        cliente_sem_csrf = Client(enforce_csrf_checks=True)
+        resposta = cliente_sem_csrf.post(self.link_do_email())
+        self.assertEqual(resposta.status_code, 403)
+        self.assertFalse(get_user_model().objects.get(username='novo_aluno').is_active)
+
     def test_link_de_ativacao_so_vale_uma_vez(self):
         self.cadastrar()
         link = self.link_do_email()
-        self.client.get(link)
+        self.client.post(link)
         self.client.logout()
-        resposta = self.client.get(link)
-        self.assertTemplateUsed(resposta, 'usuarios/ativacao_invalida.html')
-        self.assertNotIn('_auth_user_id', self.client.session)
+        for metodo in (self.client.get, self.client.post):
+            with self.subTest(metodo=metodo.__name__):
+                resposta = metodo(link)
+                self.assertTemplateUsed(resposta, 'usuarios/ativacao_invalida.html')
+                self.assertNotIn('_auth_user_id', self.client.session)
 
     def test_link_adulterado_ou_de_recuperacao_de_senha_nao_ativa(self):
         self.cadastrar()
@@ -97,9 +116,10 @@ class CadastroTests(TestCase):
         uid = urlsafe_base64_encode(force_bytes(usuario.pk))
         # Token da recuperação de senha (outro "sal") e token inventado não servem para ativar
         for token in (default_token_generator.make_token(usuario), 'token-falso'):
-            with self.subTest(token=token):
-                resposta = self.client.get(reverse('usuarios:ativar_conta', args=[uid, token]))
-                self.assertTemplateUsed(resposta, 'usuarios/ativacao_invalida.html')
+            for metodo in (self.client.get, self.client.post):
+                with self.subTest(token=token, metodo=metodo.__name__):
+                    resposta = metodo(reverse('usuarios:ativar_conta', args=[uid, token]))
+                    self.assertTemplateUsed(resposta, 'usuarios/ativacao_invalida.html')
         resposta = self.client.get(reverse('usuarios:ativar_conta', args=['uid-invalido', 'x']))
         self.assertTemplateUsed(resposta, 'usuarios/ativacao_invalida.html')
         usuario.refresh_from_db()
@@ -126,7 +146,7 @@ class CadastroTests(TestCase):
         self.assertRedirects(resposta, reverse('usuarios:ativacao_enviada'))
         self.assertEqual(len(mail.outbox), 2)
         # O novo link funciona
-        self.client.get(self.link_do_email())
+        self.client.post(self.link_do_email())
         self.assertTrue(get_user_model().objects.get(username='novo_aluno').is_active)
 
     def test_reenviar_nao_envia_para_conta_ativa_ou_inexistente(self):
@@ -280,3 +300,102 @@ class DashboardTests(TestCase):
         resposta = self.client.get(self.url)
         self.assertEqual(resposta.context['percentual'], 0)
         self.assertContains(resposta, 'Nenhum dado encontrado')
+
+
+class DashboardFiltrosTests(TestCase):
+    """Estatísticas estratificadas por banca, cargo, matéria e tópico."""
+    url = reverse('usuarios:dashboard')
+
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.usuario = User.objects.create_user('aluno', password='senha-forte-123')
+        cls.outro = User.objects.create_user('outro', password='senha-forte-123')
+        cls.fgv = Banca.objects.create(nome='Fundação Getulio Vargas', sigla='FGV')
+        cls.cebraspe = Banca.objects.create(nome='Cebraspe', sigla='CEBRASPE')
+        cls.auditor = Cargo.objects.create(nome='Auditor')
+        cls.analista = Cargo.objects.create(nome='Analista')
+        orgao = Orgao.objects.create(nome='Tribunal de Contas da União', sigla='TCU')
+        cls.administrativo = Materia.objects.create(nome='Direito Administrativo')
+        cls.constitucional = Materia.objects.create(nome='Direito Constitucional')
+        cls.licitacoes = Topico.objects.create(nome='Licitações', materia=cls.administrativo)
+        cls.contratos = Topico.objects.create(nome='Contratos', materia=cls.administrativo)
+        cls.direitos = Topico.objects.create(nome='Direitos Fundamentais', materia=cls.constitucional)
+
+        def questao(banca, cargo, *topicos):
+            q = Questao.objects.create(enunciado='x', ano=2024, banca=banca, orgao=orgao, cargo=cargo)
+            q.topicos.add(*topicos)
+            return q
+
+        def responder(usuario, questao, *resultados):
+            for acertou in resultados:
+                HistoricoResolucao.objects.create(usuario=usuario, questao=questao, acertou=acertou)
+
+        # q1 tem DOIS tópicos da mesma matéria: filtrar pela matéria não pode contar as respostas em dobro
+        q1 = questao(cls.fgv, cls.auditor, cls.licitacoes, cls.contratos)
+        q2 = questao(cls.cebraspe, cls.analista, cls.direitos)
+        q3 = questao(cls.fgv, cls.analista, cls.contratos)
+        responder(cls.usuario, q1, True, False)       # 2 respostas, 1 acerto
+        responder(cls.usuario, q2, True, True, True)  # 3 respostas, 3 acertos
+        responder(cls.usuario, q3, False)             # 1 resposta, 0 acertos
+        responder(cls.outro, q1, True, True, True)    # de outro usuário: nunca entra na conta
+
+    def setUp(self):
+        self.client.force_login(self.usuario)
+
+    def estatisticas(self, **filtros):
+        contexto = self.client.get(self.url, filtros).context
+        return contexto['total'], contexto['acertos'], contexto['erros']
+
+    def test_sem_filtro_conta_tudo_do_usuario(self):
+        self.assertEqual(self.estatisticas(), (6, 4, 2))
+
+    def test_cada_filtro_estratifica(self):
+        casos = {
+            'banca FGV': ({'banca': self.fgv.id}, (3, 1, 2)),
+            'banca Cebraspe': ({'banca': self.cebraspe.id}, (3, 3, 0)),
+            'cargo Analista': ({'cargo': self.analista.id}, (4, 3, 1)),
+            'cargo Auditor': ({'cargo': self.auditor.id}, (2, 1, 1)),
+            # q1 tem 2 tópicos de Administrativo: continua contando 2 respostas, não 4
+            'matéria Administrativo': ({'materia': self.administrativo.id}, (3, 1, 2)),
+            'matéria Constitucional': ({'materia': self.constitucional.id}, (3, 3, 0)),
+            'tópico Contratos': ({'topico': self.contratos.id}, (3, 1, 2)),
+            'tópico Licitações': ({'topico': self.licitacoes.id}, (2, 1, 1)),
+        }
+        for nome, (filtros, esperado) in casos.items():
+            with self.subTest(nome):
+                self.assertEqual(self.estatisticas(**filtros), esperado)
+
+    def test_filtros_combinados_e_percentual(self):
+        self.assertEqual(self.estatisticas(banca=self.fgv.id, cargo=self.analista.id), (1, 0, 1))
+        contexto = self.client.get(self.url, {'cargo': self.analista.id}).context
+        self.assertEqual(contexto['percentual'], 75.0)
+
+    def test_topico_de_outra_materia_e_ignorado(self):
+        self.assertEqual(self.estatisticas(materia=self.constitucional.id, topico=self.licitacoes.id), (3, 3, 0))
+
+    def test_orgao_ano_e_valores_invalidos_sao_ignorados(self):
+        # O painel só filtra por banca, cargo, matéria e tópico
+        self.assertEqual(self.estatisticas(orgao=999, ano=1999), (6, 4, 2))
+        self.assertEqual(self.estatisticas(banca='abc', topico='²'), (6, 4, 2))
+        self.assertEqual(self.client.get(self.url, {'ano': 1999}).context['filtros_ativos'], 0)
+
+    def test_combinacao_sem_respostas_mostra_aviso_proprio(self):
+        resposta = self.client.get(self.url, {'banca': self.cebraspe.id, 'cargo': self.auditor.id})
+        self.assertEqual(resposta.context['total'], 0)
+        self.assertContains(resposta, 'Nenhuma resposta com esses filtros')
+        self.assertContains(resposta, f'<a href="{self.url}">Limpar filtros</a>', html=True)
+        self.assertNotContains(resposta, 'Nenhum dado encontrado')
+
+    def test_mostra_so_os_quatro_filtros_e_mantem_a_selecao(self):
+        resposta = self.client.get(self.url, {'banca': self.fgv.id, 'materia': self.administrativo.id})
+        for campo in ('banca', 'cargo', 'materia', 'topico'):
+            self.assertContains(resposta, f'name="{campo}"')
+        for campo in ('orgao', 'ano'):
+            self.assertNotContains(resposta, f'name="{campo}"')
+        self.assertContains(resposta, 'data-campos="4"')
+        self.assertContains(resposta, f'action="{self.url}"')
+        self.assertContains(resposta, f'<option value="{self.fgv.id}" selected>FGV</option>', html=True)
+        # Com a matéria escolhida, o dropdown de tópicos só tem os tópicos dela
+        self.assertEqual(set(resposta.context['topicos']), {self.licitacoes, self.contratos})
+        self.assertContains(resposta, '<span class="filtros-contador">2 ativos</span>', html=True)

@@ -1,6 +1,7 @@
 # Importa o módulo de modelos do Django (ORM): fornece a classe base Model
 # e os tipos de campo usados para descrever as tabelas do banco em Python.
 from django.db import models
+from django.db.models.functions import Length
 # Importa as configurações do projeto para referenciar o model de usuário (AUTH_USER_MODEL).
 from django.conf import settings
 
@@ -78,6 +79,10 @@ class Questao(models.Model):
         # Valor gravado no banco: 'CE'; rótulo exibido ao usuário: 'Certo/Errado'.
         CERTO_ERRADO = 'CE', 'Certo/Errado'
 
+    # Identificador próprio da questão (ex: "FGV-TCU-2024-015"), usado na importação por planilha
+    # para impedir que a mesma questão seja importada duas vezes. Opcional: questões cadastradas
+    # pelo admin podem ficar sem código (NULL não conflita com o unique).
+    codigo = models.CharField(max_length=50, unique=True, null=True, blank=True)
     # Texto do enunciado; TextField não tem limite de tamanho.
     enunciado = models.TextField()
     # Tipo da questão: 2 caracteres, restrito às opções acima; padrão é múltipla escolha.
@@ -100,6 +105,9 @@ class Questao(models.Model):
     class Meta:
         # Ordem padrão da listagem: provas mais recentes primeiro (a paginação exige ordem definida).
         ordering = ['-ano', 'id']
+        # Permissão própria para a importação por planilha: superusuários já a têm;
+        # os demais recebem pelo grupo "Administrador" (ou individualmente, pelo admin)
+        permissions = [('importar_questoes', 'Pode importar questões por planilha CSV')]
 
     # Representação textual da questão.
     def __str__(self):
@@ -144,6 +152,12 @@ class ResolucaoOficial(models.Model):
     questao = models.OneToOneField(Questao, on_delete=models.CASCADE, related_name='resolucao')
     # Texto da resolução.
     texto = models.TextField()
+    # Usuários que curtiram a resolução (mesmo esquema das curtidas dos comentários:
+    # par (resolução, usuário) único; "descurtir" remove o par).
+    curtidas = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='resolucoes_curtidas', blank=True)
+    # Usuários que descurtiram (👎) a resolução. Curtir e descurtir se excluem: a view remove o
+    # usuário de uma lista quando ele entra na outra (ver _alternar_curtida em views.py).
+    descurtidas = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='resolucoes_descurtidas', blank=True)
 
     # Representação textual da resolução.
     def __str__(self):
@@ -175,3 +189,46 @@ class HistoricoResolucao(models.Model):
     # Representação textual da tentativa.
     def __str__(self):
         return f"{self.usuario} - Questão {self.questao_id} - {'Acertou' if self.acertou else 'Errou'}"
+
+# 4. FÓRUM (comentários das questões)
+
+# Tamanho máximo de um comentário: 1 a 2 parágrafos, suficiente para explicar um raciocínio
+# ou citar um artigo de lei sem virar redação. Para mudar o limite, altere só este número
+# (e gere uma migração, porque a constraint do banco usa o valor).
+COMENTARIO_TAMANHO_MAXIMO = 1000
+
+
+# Comentário de um usuário numa questão. As respostas usam um só nível de aninhamento:
+# resposta_a sempre aponta para um comentário principal (quem responde a uma resposta entra
+# na mesma conversa, mencionando o autor com @usuario). Isso mantém o fórum legível no celular.
+class Comentario(models.Model):
+    questao = models.ForeignKey(Questao, on_delete=models.CASCADE, related_name='comentarios')
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='comentarios')
+    # max_length num TextField limita o formulário (e o maxlength da caixa de texto no navegador)
+    texto = models.TextField(max_length=COMENTARIO_TAMANHO_MAXIMO)
+    # Vazio = comentário principal; preenchido = resposta ao comentário principal indicado
+    resposta_a = models.ForeignKey(
+        'self', on_delete=models.CASCADE, null=True, blank=True, related_name='respostas',
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True)
+    # Usuários que curtiram o comentário. O Django cria a tabela intermediária com o par
+    # (comentário, usuário) único: cada usuário curte no máximo uma vez; "descurtir" remove o par.
+    curtidas = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='comentarios_curtidos', blank=True)
+
+    class Meta:
+        # Conversas em ordem cronológica, como num fórum
+        ordering = ['data_criacao', 'id']
+        verbose_name = 'comentário'
+        verbose_name_plural = 'comentários'
+        constraints = [
+            # Mesmo que alguém grave direto no banco, o texto não pode ficar vazio nem passar do limite
+            models.CheckConstraint(
+                condition=models.lookups.GreaterThan(Length('texto'), 0)
+                & models.lookups.LessThanOrEqual(Length('texto'), COMENTARIO_TAMANHO_MAXIMO),
+                name='comentario_tamanho_valido',
+            ),
+        ]
+
+    def __str__(self):
+        tipo = 'Resposta' if self.resposta_a_id else 'Comentário'
+        return f'{tipo} de {self.usuario} na Questão {self.questao_id}'

@@ -27,6 +27,10 @@
             <nav class="topo-menu" aria-label="Menu do usuário">
                 <span class="topo-usuario" title="{{ user.username }}">Olá, {{ user.username }}</span>
                 <a href="{% url 'usuarios:dashboard' %}" class="btn-desempenho">Meu Desempenho</a>
+                {# Só para quem tem a permissão de importar (superusuários e grupo "Administrador") #}
+                {% if perms.questoes.importar_questoes %}
+                <a href="{% url 'questoes:importar_questoes' %}" class="btn-limpar" title="Importar planilha .csv">Importar CSV</a>
+                {% endif %}
                 <!-- O LogoutView exige POST, por isso o Sair é um formulário -->
                 <form method="POST" action="{% url 'usuarios:logout' %}">
                     {% csrf_token %}

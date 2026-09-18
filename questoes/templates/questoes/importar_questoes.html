@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block title %}Importar Planilha - Simulado{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h2>Importar Planilha</h2>
+    <a href="{% url 'questoes:lista_questoes' %}" class="btn-voltar">Voltar para Questões</a>
+</div>
+
+{# Erros da importação: tudo ou nada, então nenhum registro foi gravado #}
+{% if total_erros %}
+<div class="alert error importacao-erros" role="alert">
+    <p>Importação cancelada: {{ total_erros }} erro{{ total_erros|pluralize }} encontrado{{ total_erros|pluralize }}. Nenhum registro foi gravado. Corrija a planilha e envie novamente.</p>
+    <ul>
+        {% for erro in erros %}
+        <li>{{ erro }}</li>
+        {% endfor %}
+    </ul>
+    {% if erros_ocultos %}
+    <p>... e mais {{ erros_ocultos }} erro{{ erros_ocultos|pluralize }} não exibido{{ erros_ocultos|pluralize }}.</p>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="painel">
+    <p class="painel-texto">
+        Envie uma planilha <strong>.csv</strong> (até 5 MB) em que <strong>cada linha é uma questão</strong>.
+        Bancas, órgãos, cargos, matérias e tópicos que ainda não existem são cadastrados automaticamente.
+        Se houver qualquer erro, <strong>nada é gravado</strong> e os erros são listados por linha e coluna.
+    </p>
+
+    <p><a href="{% url 'questoes:modelo_planilha' %}" class="btn-limpar">Baixar modelo de planilha</a></p>
+
+    {# enctype multipart/form-data: obrigatório para o navegador enviar o arquivo, e não só o nome dele #}
+    <form method="POST" enctype="multipart/form-data" class="form-upload">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn-submit">Enviar planilha</button>
+    </form>
+</div>
+
+{# Ajuda com as colunas: recolhida por padrão (details/summary funciona sem JavaScript) #}
+<details class="painel colunas-ajuda">
+    <summary>Colunas da planilha</summary>
+    <p class="painel-texto">
+        Separador <strong>;</strong> (padrão do Excel em português), cabeçalho na primeira linha e codificação
+        UTF-8 (no Excel: <em>Salvar como → CSV UTF-8</em>). A ordem das colunas não importa.
+    </p>
+    {# A tabela rola na horizontal no celular, sem estourar a largura da página #}
+    <div class="tabela-rolavel">
+        <table class="tabela">
+            <thead>
+                <tr><th>Coluna</th><th>Obrigatória</th><th>Descrição</th><th>Exemplo</th></tr>
+            </thead>
+            <tbody>
+                {% for coluna in colunas %}
+                <tr>
+                    <td><code>{{ coluna.nome }}</code></td>
+                    <td>{{ coluna.obrigatoria }}</td>
+                    <td>{{ coluna.descricao }}</td>
+                    <td>{{ coluna.exemplo }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</details>
+{% endblock %}

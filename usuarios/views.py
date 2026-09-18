@@ -9,7 +9,9 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
-from questoes.models import HistoricoResolucao
+from django.views.decorators.http import require_http_methods
+from questoes.filtros import FiltrosQuestao
+from questoes.models import HistoricoResolucao, Questao
 from .forms import CadastroUsuarioForm, ReenviarAtivacaoForm
 from .models import Usuario
 from .tokens import ativacao_token
@@ -51,7 +53,12 @@ def ativacao_enviada(request):
     return render(request, 'usuarios/ativacao_enviada.html')
 
 
-# Link do e-mail: confere o token, ativa a conta, faz o login e leva para as questões
+# Link do e-mail, em dois passos:
+# - GET (abrir o link): só confere o token e mostra o botão "Ativar minha conta". Abrir o link não
+#   muda nada, então filtros de e-mail e antivírus que visitam links sozinhos não ativam a conta.
+# - POST (clicar no botão): ativa, faz o login e leva para as questões. Por ser POST com token CSRF,
+#   outro site não consegue forçar alguém a entrar numa conta que não é dele (login CSRF).
+@require_http_methods(['GET', 'POST'])
 def ativar_conta(request, uidb64, token):
     try:
         usuario = Usuario.objects.get(pk=force_str(urlsafe_base64_decode(uidb64)))
@@ -61,6 +68,9 @@ def ativar_conta(request, uidb64, token):
     # check_token falha se o link foi adulterado, expirou ou já foi usado (a conta já está ativa)
     if usuario is None or not ativacao_token.check_token(usuario, token):
         return render(request, 'usuarios/ativacao_invalida.html')
+
+    if request.method == 'GET':
+        return render(request, 'usuarios/ativar_conta.html', {'usuario': usuario})
 
     usuario.is_active = True
     usuario.save(update_fields=['is_active'])
@@ -86,11 +96,24 @@ def reenviar_ativacao(request):
     return render(request, 'usuarios/reenviar_ativacao.html', {'form': form})
 
 
-# Painel com o desempenho do usuário logado, calculado a partir do histórico de respostas
+# Filtros disponíveis no painel de desempenho (a lista de questões tem também órgão e ano)
+FILTROS_DASHBOARD = ('banca', 'cargo', 'materia', 'topico')
+
+
+# Painel com o desempenho do usuário logado, calculado a partir do histórico de respostas.
+# Os filtros (banca, cargo, matéria, tópico) restringem as estatísticas às questões que os atendem.
 @login_required
 def dashboard(request):
+    filtros = FiltrosQuestao.da_requisicao(request.GET, campos=FILTROS_DASHBOARD)
+    historico = HistoricoResolucao.objects.filter(usuario=request.user)
+    if filtros.ativos:
+        # Mesmo filtro da lista de questões, aplicado às questões respondidas. Filtrar por
+        # "questão está entre as filtradas" (subconsulta) evita contar a mesma resposta duas vezes
+        # quando a questão tem mais de um tópico da matéria escolhida.
+        historico = historico.filter(questao__in=filtros.aplicar(Questao.objects.all()))
+
     # Conta o total e os acertos numa única consulta ao banco
-    resumo = HistoricoResolucao.objects.filter(usuario=request.user).aggregate(
+    resumo = historico.aggregate(
         total=Count('id'),
         acertos=Count('id', filter=Q(acertou=True)),
     )
@@ -103,5 +126,6 @@ def dashboard(request):
         'erros': total - acertos,
         # Evita divisão por zero quando o usuário ainda não respondeu nada
         'percentual': round(acertos / total * 100, 1) if total else 0,
+        **filtros.contexto(campos=FILTROS_DASHBOARD),
     }
     return render(request, 'usuarios/dashboard.html', context)

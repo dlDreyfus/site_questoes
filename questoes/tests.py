@@ -1,9 +1,12 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group, Permission
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Alternativa, Banca, Cargo, HistoricoResolucao, Materia, Orgao, Questao, Topico
+from .forms import TAMANHO_MAXIMO_CSV
+from .models import Alternativa, Banca, Cargo, HistoricoResolucao, Materia, Orgao, Questao, ResolucaoOficial, Topico
 from .views import QUESTOES_POR_PAGINA
 
 
@@ -128,6 +131,15 @@ class ListaQuestoesTests(BaseQuestoesTestCase):
         resposta = self.client.get(self.url, {'banca': self.fgv.id, 'ano': 2024})
         self.assertContains(resposta, '<span class="filtros-contador">2 ativos</span>', html=True)
 
+    def test_mantem_quebras_de_linha_do_enunciado_e_das_alternativas(self):
+        self.questao.enunciado = 'Texto-base.\nI - primeiro item\nII - segundo item'
+        self.questao.save()
+        self.errada.texto = 'Apenas I.\n(com observação)'
+        self.errada.save()
+        resposta = self.client.get(self.url, {'banca': self.fgv.id})
+        self.assertContains(resposta, 'Texto-base.<br>I - primeiro item<br>II - segundo item')
+        self.assertContains(resposta, '<span>Apenas I.<br>(com observação)</span>')
+
     def test_card_mostra_orgao_e_cargo(self):
         resposta = self.client.get(self.url, {'banca': self.fgv.id})
         self.assertContains(resposta, '<strong>Órgão:</strong> TCU', html=False)
@@ -141,6 +153,11 @@ class ListaQuestoesTests(BaseQuestoesTestCase):
                 resposta = self.client.get(self.url, parametros)
                 self.assertEqual(resposta.status_code, 200)
                 self.assertContains(resposta, 'Questão da FGV')
+
+    def test_lista_tem_ordem_definida_para_a_paginacao(self):
+        # Consultas com Count (GROUP BY) perdem o Meta.ordering; a view precisa ordenar explicitamente
+        resposta = self.client.get(self.url)
+        self.assertTrue(resposta.context['pagina'].paginator.object_list.ordered)
 
     def test_questoes_mais_recentes_primeiro(self):
         resposta = self.client.get(self.url)
@@ -207,6 +224,23 @@ class ResponderQuestaoTests(BaseQuestoesTestCase):
                 self.assertEqual(self.mensagens(resposta)[0][0], 'warning')
         self.assertFalse(HistoricoResolucao.objects.exists())
 
+    def test_resolucao_aparece_so_depois_de_responder_e_uma_vez(self):
+        ResolucaoOficial.objects.create(questao=self.questao, texto='Linha 1\nLinha 2 da resolução')
+        lista = reverse('questoes:lista_questoes')
+        self.assertNotContains(self.client.get(lista), 'Linha 2 da resolução')
+        # Resposta inválida não revela a resolução
+        self.responder({})
+        self.assertNotContains(self.client.get(lista), 'Linha 2 da resolução')
+        # Depois de responder (certo ou errado), aparece com as quebras de linha
+        resposta = self.responder({'alternativa': self.errada.id})
+        self.assertContains(resposta, 'Linha 1<br>Linha 2 da resolução')
+        # Na visita seguinte, some de novo
+        self.assertNotContains(self.client.get(lista), 'Linha 2 da resolução')
+
+    def test_questao_sem_resolucao_nao_mostra_o_bloco(self):
+        resposta = self.responder({'alternativa': self.certa.id})
+        self.assertNotContains(resposta, 'class="resolucao"')
+
     def test_volta_para_a_pagina_de_origem(self):
         url = reverse('questoes:responder_questao', args=[self.questao.id])
         resposta = self.client.post(url, {'alternativa': self.certa.id, 'next': '/?ano=2024&page=1'})
@@ -231,6 +265,85 @@ class ModelsTests(BaseQuestoesTestCase):
         historico = HistoricoResolucao.objects.get()
         self.assertIsNone(historico.alternativa_escolhida)
         self.assertFalse(historico.acertou)
+
+
+class ImportarQuestoesTests(BaseQuestoesTestCase):
+    url = reverse('questoes:importar_questoes')
+
+    def usuario_com_permissao_pelo_grupo(self):
+        # Mesmo caminho do projeto real: a permissão vem do grupo "Administrador"
+        grupo = Group.objects.create(name='Administrador')
+        grupo.permissions.add(Permission.objects.get(codename='importar_questoes'))
+        admin = get_user_model().objects.create_user('membro_admin', password='senha-forte-123')
+        admin.groups.add(grupo)
+        return admin
+
+    def csv(self, conteudo=b'coluna;outra\nvalor;valor\n', nome='questoes.csv'):
+        return SimpleUploadedFile(nome, conteudo, content_type='text/csv')
+
+    def test_exige_login(self):
+        self.client.logout()
+        self.assertRedirects(self.client.get(self.url), f"{reverse('usuarios:login')}?next={self.url}")
+
+    def test_usuario_comum_nao_ve_o_link_nem_acessa(self):
+        # self.usuario (logado no setUp) é um aluno comum
+        self.assertNotContains(self.client.get(reverse('questoes:lista_questoes')), f'href="{self.url}"')
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+        self.assertEqual(self.client.post(self.url, {'arquivo': self.csv()}).status_code, 403)
+
+    def test_superusuario_e_grupo_administrador_veem_o_link_e_acessam(self):
+        superusuario = get_user_model().objects.create_superuser('chefe', password='senha-forte-123')
+        for usuario in (superusuario, self.usuario_com_permissao_pelo_grupo()):
+            with self.subTest(usuario=usuario.username):
+                self.client.force_login(usuario)
+                self.assertContains(self.client.get(reverse('questoes:lista_questoes')), f'href="{self.url}"')
+                resposta = self.client.get(self.url)
+                self.assertEqual(resposta.status_code, 200)
+                self.assertContains(resposta, 'enctype="multipart/form-data"')
+                self.assertContains(resposta, 'accept=".csv,text/csv"')
+
+    def test_modelo_de_planilha(self):
+        self.assertEqual(self.client.get(reverse('questoes:modelo_planilha')).status_code, 403)
+        self.client.force_login(self.usuario_com_permissao_pelo_grupo())
+        self.assertContains(self.client.get(self.url), f'href="{reverse("questoes:modelo_planilha")}"')
+        resposta = self.client.get(reverse('questoes:modelo_planilha'))
+        self.assertEqual(resposta['Content-Type'], 'text/csv; charset=utf-8')
+        self.assertIn('attachment; filename="modelo_importacao_questoes.csv"', resposta['Content-Disposition'])
+        conteudo = resposta.content.decode('utf-8')
+        self.assertTrue(conteudo.startswith('﻿codigo;banca_sigla;'))  # BOM para o Excel
+        self.assertEqual(len(conteudo.strip().splitlines()), 3)  # cabeçalho + 2 exemplos
+
+    def test_modelo_de_planilha_e_importavel(self):
+        # O próprio modelo, enviado sem alterações, importa as 2 questões de exemplo
+        self.client.force_login(self.usuario_com_permissao_pelo_grupo())
+        modelo = self.client.get(reverse('questoes:modelo_planilha')).content
+        resposta = self.client.post(self.url, {'arquivo': self.csv(modelo)}, follow=True)
+        self.assertRedirects(resposta, self.url)
+        self.assertContains(resposta, 'importada com sucesso')
+        self.assertTrue(Questao.objects.filter(codigo='FGV-TCU-2024-001').exists())
+        self.assertTrue(Questao.objects.filter(codigo='CEBRASPE-TCE-2023-001').exists())
+
+    def test_mostra_os_erros_na_pagina(self):
+        self.client.force_login(self.usuario_com_permissao_pelo_grupo())
+        resposta = self.client.post(self.url, {'arquivo': self.csv(b'coluna;outra\nvalor;valor\n')})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, 'Importação cancelada: 1 erro encontrado. Nenhum registro foi gravado.')
+        self.assertContains(resposta, 'Linha 1 (cabeçalho): faltam as colunas')
+
+    def test_rejeita_arquivos_invalidos(self):
+        self.client.force_login(self.usuario_com_permissao_pelo_grupo())
+        casos = {
+            'extensão diferente': self.csv(nome='questoes.xlsx'),
+            'arquivo vazio': self.csv(conteudo=b''),
+            'maior que o limite': self.csv(conteudo=b'x' * (TAMANHO_MAXIMO_CSV + 1)),
+        }
+        for nome, arquivo in casos.items():
+            with self.subTest(caso=nome):
+                resposta = self.client.post(self.url, {'arquivo': arquivo})
+                self.assertEqual(resposta.status_code, 200)
+                self.assertTrue(resposta.context['form'].errors)
+        resposta = self.client.post(self.url, {})
+        self.assertTrue(resposta.context['form'].errors)
 
 
 class AdminAlternativasTests(BaseQuestoesTestCase):

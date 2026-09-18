@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Meu Desempenho{% endblock %}
 
@@ -7,6 +8,9 @@
     <h2>Dashboard de Desempenho</h2>
     <a href="{% url 'questoes:lista_questoes' %}" class="btn-voltar">Voltar para Questões</a>
 </div>
+
+{# Filtros para estratificar as estatísticas (banca, cargo, matéria e tópico): mesmo formulário da lista #}
+{% include 'questoes/_filtros.html' %}
 
 {% if total > 0 %}
 <div class="dashboard-grid">
@@ -27,10 +31,21 @@
         <p class="numero">{{ erros }}</p>
     </div>
 </div>
+{% elif filtros_ativos %}
+{# Há respostas, mas nenhuma nas questões que atendem aos filtros escolhidos #}
+<div class="dashboard-card">
+    <h3>Nenhuma resposta com esses filtros</h3>
+    <p>Você ainda não respondeu questões com essa combinação. <a href="{{ request.path }}">Limpar filtros</a></p>
+</div>
 {% else %}
 <div class="dashboard-card">
     <h3>Nenhum dado encontrado</h3>
     <p>Você ainda não respondeu nenhuma questão. Vá para a tela principal e comece seus estudos!</p>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{# Mesmo comportamento da lista: aplica ao mudar o dropdown e recolhe o painel no celular #}
+<script src="{% static 'js/filtros.js' %}" defer></script>
 {% endblock %}

@@ -6,90 +6,8 @@
 {% block content %}
 <h1>Questões Cadastradas</h1>
 
-{# Botão que abre/fecha os filtros no celular. Começa com 'hidden': só o static/js/filtros.js o exibe, #}
-{# então sem JavaScript os filtros ficam sempre visíveis. No tablet/computador o CSS o esconde. #}
-<button type="button" class="btn-filtros" aria-controls="filtros" aria-expanded="true" hidden>
-    Filtros
-    {% if filtros_ativos %}<span class="filtros-contador">{{ filtros_ativos }} ativo{{ filtros_ativos|pluralize }}</span>{% endif %}
-</button>
-
-<!-- Barra de Filtros: static/js/filtros.js envia o formulário assim que um dropdown muda -->
-{# data-filtros-ativos: o JS usa para decidir se o painel começa aberto (há filtro em uso) ou fechado #}
-<form method="GET" action="{% url 'questoes:lista_questoes' %}" class="filtro-form" id="filtros"
-      data-filtros-ativos="{{ filtros_ativos }}">
-    <div class="filtro-grupo">
-        <label for="banca">Banca</label>
-        <select name="banca" id="banca">
-            <option value="">Todas as Bancas</option>
-            {% for b in bancas %}
-            <!-- A lógica 'if' garante que a opção continue selecionada após o recarregamento -->
-            <option value="{{ b.id }}" {% if banca_selecionada == b.id %}selected{% endif %}>{{ b }}</option>
-            {% endfor %}
-        </select>
-    </div>
-
-    <div class="filtro-grupo">
-        <label for="orgao">Órgão</label>
-        <select name="orgao" id="orgao">
-            <option value="">Todos os Órgãos</option>
-            {% for o in orgaos %}
-            <option value="{{ o.id }}" {% if orgao_selecionado == o.id %}selected{% endif %}>{{ o }}</option>
-            {% endfor %}
-        </select>
-    </div>
-
-    <div class="filtro-grupo">
-        <label for="cargo">Cargo</label>
-        <select name="cargo" id="cargo">
-            <option value="">Todos os Cargos</option>
-            {% for c in cargos %}
-            <option value="{{ c.id }}" {% if cargo_selecionado == c.id %}selected{% endif %}>{{ c }}</option>
-            {% endfor %}
-        </select>
-    </div>
-
-    <div class="filtro-grupo">
-        <label for="materia">Matéria</label>
-        <select name="materia" id="materia">
-            <option value="">Todas as Matérias</option>
-            {% for m in materias %}
-            <option value="{{ m.id }}" {% if materia_selecionada == m.id %}selected{% endif %}>{{ m }}</option>
-            {% endfor %}
-        </select>
-    </div>
-
-    <div class="filtro-grupo">
-        <label for="topico">Tópico</label>
-        <select name="topico" id="topico">
-            <option value="">Todos os Tópicos</option>
-            {# Tópicos agrupados por matéria (optgroup); com uma matéria escolhida, a view envia só os dela #}
-            {% regroup topicos by materia as grupos %}
-            {% for grupo in grupos %}
-            <optgroup label="{{ grupo.grouper }}">
-                {% for t in grupo.list %}
-                <option value="{{ t.id }}" {% if topico_selecionado == t.id %}selected{% endif %}>{{ t.nome }}</option>
-                {% endfor %}
-            </optgroup>
-            {% endfor %}
-        </select>
-    </div>
-
-    <div class="filtro-grupo">
-        <label for="ano">Ano</label>
-        <select name="ano" id="ano">
-            <option value="">Todos os Anos</option>
-            {% for a in anos %}
-            <option value="{{ a }}" {% if ano_selecionado == a %}selected{% endif %}>{{ a }}</option>
-            {% endfor %}
-        </select>
-    </div>
-
-    <div class="filtro-grupo filtro-acoes">
-        <!-- Só aparece se o JavaScript estiver desativado no navegador -->
-        <noscript><button type="submit" class="btn-filtrar">Aplicar Filtros</button></noscript>
-        <a href="{% url 'questoes:lista_questoes' %}" class="btn-limpar">Limpar</a>
-    </div>
-</form>
+{# Filtros (banca, órgão, cargo, matéria, tópico e ano): ver questoes/_filtros.html #}
+{% include 'questoes/_filtros.html' %}
 
 {% with total=pagina.paginator.count %}
 <p class="total-questoes">{{ total }} {% if total == 1 %}questão encontrada{% else %}questões encontradas{% endif %}</p>
@@ -102,7 +20,8 @@
         <strong>Banca:</strong> {{ questao.banca }} | <strong>Órgão:</strong> {{ questao.orgao }} |
         <strong>Cargo:</strong> {{ questao.cargo }} | <strong>Ano:</strong> {{ questao.ano }}
     </p>
-    <p class="enunciado">{{ questao.enunciado }}</p>
+    {# linebreaksbr: mantém as quebras de linha do texto (itens I, II, III, texto-base, citações de lei) #}
+    <p class="enunciado">{{ questao.enunciado|linebreaksbr }}</p>
 
     <!-- Resultado da última resposta desta questão (a mensagem carrega o id da questão em extra_tags) -->
     {% for message in messages %}
@@ -110,6 +29,21 @@
     <div class="alert {{ message.level_tag }}">{{ message }}</div>
     {% endif %}
     {% endfor %}
+
+    {# Resolução oficial: só aparece logo depois de o usuário responder esta questão (antes, entregaria o gabarito) #}
+    {% if questao.id == questao_respondida and resolucao_exibida %}
+    <details class="resolucao" id="resolucao-{{ resolucao_exibida.id }}" open>
+        <summary>Resolução</summary>
+        <p>{{ resolucao_exibida.texto|linebreaksbr }}</p>
+        {# Curtir e descurtir se excluem: o JavaScript atualiza os dois botões do grupo .votos #}
+        <div class="votos">
+            {% url 'questoes:curtir_resolucao' resolucao_exibida.id as url_curtir %}
+            {% include 'questoes/_botao_curtir.html' with url=url_curtir ativo=resolucao_exibida.curtido total=resolucao_exibida.total_curtidas alvo='esta resolução' %}
+            {% url 'questoes:descurtir_resolucao' resolucao_exibida.id as url_descurtir %}
+            {% include 'questoes/_botao_curtir.html' with url=url_descurtir ativo=resolucao_exibida.descurtido total=resolucao_exibida.total_descurtidas alvo='esta resolução' tipo='descurtir' %}
+        </div>
+    </details>
+    {% endif %}
 
     <form method="POST" action="{% url 'questoes:responder_questao' questao.id %}">
         {% csrf_token %}
@@ -120,12 +54,41 @@
         {% for alternativa in questao.alternativas.all %}
         <label class="alternativa">
             <input type="radio" name="alternativa" value="{{ alternativa.id }}" required>
-            {{ alternativa.texto }}
+            {# span: com <br> dentro, o texto precisa ser um único item do flex do .alternativa #}
+            <span>{{ alternativa.texto|linebreaksbr }}</span>
         </label>
         {% endfor %}
 
         <button type="submit" class="btn-submit">Responder</button>
     </form>
+
+    {# Fórum da questão: recolhido por padrão; abre sozinho logo após o usuário comentar nela #}
+    <details class="forum" id="comentarios-{{ questao.id }}" {% if comentarios_abertos == questao.id %}open{% endif %}>
+        <summary>Comentários ({{ questao.total_comentarios }})</summary>
+
+        {% for comentario in questao.comentarios_principais %}
+        <div class="conversa">
+            {% include 'questoes/_comentario.html' %}
+            {% if comentario.respostas.all %}
+            <div class="respostas">
+                {% for resposta in comentario.respostas.all %}
+                {% include 'questoes/_comentario.html' with comentario=resposta %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% empty %}
+        <p class="forum-vazio">Nenhum comentário ainda. Seja o primeiro a comentar!</p>
+        {% endfor %}
+
+        <form method="POST" action="{% url 'questoes:comentar_questao' questao.id %}" class="form-comentario">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <label for="novo-comentario-{{ questao.id }}">Novo comentário</label>
+            <textarea id="novo-comentario-{{ questao.id }}" name="texto" rows="3" maxlength="{{ comentario_tamanho_maximo }}" required placeholder="Escreva seu comentário (até {{ comentario_tamanho_maximo }} caracteres)"></textarea>
+            <button type="submit" class="btn-submit">Publicar comentário</button>
+        </form>
+    </details>
 </div>
 {% empty %}
 <p>Nenhuma questão encontrada.</p>
@@ -151,4 +114,5 @@
 
 {% block extra_js %}
 <script src="{% static 'js/filtros.js' %}" defer></script>
+<script src="{% static 'js/forum.js' %}" defer></script>
 {% endblock %}

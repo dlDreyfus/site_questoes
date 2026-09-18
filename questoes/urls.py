@@ -13,5 +13,16 @@ urlpatterns = [
     path('', views.lista_questoes, name='lista_questoes'),
     # Recebe o POST com a alternativa marcada na questão <questao_id>.
     path('questao/<int:questao_id>/responder/', views.responder_questao, name='responder_questao'),
+    # Fórum: publica um comentário (ou resposta a um comentário) na questão <questao_id>.
+    path('questao/<int:questao_id>/comentar/', views.comentar_questao, name='comentar_questao'),
+    # Fórum: curte o comentário <comentario_id> ou, se já curtido, desfaz a curtida.
+    path('comentario/<int:comentario_id>/curtir/', views.curtir_comentario, name='curtir_comentario'),
+    # Curte a resolução oficial <resolucao_id> ou, se já curtida, desfaz a curtida.
+    path('resolucao/<int:resolucao_id>/curtir/', views.curtir_resolucao, name='curtir_resolucao'),
+    # Descurte (👎) a resolução oficial ou, se já descurtida, desfaz. Só existe para a resolução.
+    path('resolucao/<int:resolucao_id>/descurtir/', views.descurtir_resolucao, name='descurtir_resolucao'),
+    # Upload da planilha .csv de importação (restrito a quem tem a permissão importar_questoes).
+    path('importar/', views.importar_questoes, name='importar_questoes'),
+    path('importar/modelo.csv', views.modelo_planilha, name='modelo_planilha'),
 # Fecha a lista de rotas.
 ]

@@ -1,0 +1,100 @@
+{# Formulário de filtros compartilhado pela lista de questões e pelo painel "Meu Desempenho". #}
+{# Recebe o contexto de FiltrosQuestao.contexto() (questoes/filtros.py); filtros_campos diz quais #}
+{# dropdowns exibir. A URL do formulário e do "Limpar" é a da própria página (request.path). #}
+{# Botão que abre/fecha os filtros no celular. Começa com 'hidden': só o static/js/filtros.js o exibe, #}
+{# então sem JavaScript os filtros ficam sempre visíveis. No tablet/computador o CSS o esconde. #}
+<button type="button" class="btn-filtros" aria-controls="filtros" aria-expanded="true" hidden>
+    Filtros
+    {% if filtros_ativos %}<span class="filtros-contador">{{ filtros_ativos }} ativo{{ filtros_ativos|pluralize }}</span>{% endif %}
+</button>
+
+<!-- Barra de Filtros: static/js/filtros.js envia o formulário assim que um dropdown muda -->
+{# data-filtros-ativos: o JS usa para decidir se o painel começa aberto (há filtro em uso) ou fechado #}
+{# data-campos: quantos dropdowns há; o CSS ajusta as colunas no computador (ex: 4 lado a lado) #}
+<form method="GET" action="{{ request.path }}" class="filtro-form" id="filtros"
+      data-filtros-ativos="{{ filtros_ativos }}" data-campos="{{ filtros_campos|length }}">
+    {% if 'banca' in filtros_campos %}
+    <div class="filtro-grupo">
+        <label for="banca">Banca</label>
+        <select name="banca" id="banca">
+            <option value="">Todas as Bancas</option>
+            {% for b in bancas %}
+            <!-- A lógica 'if' garante que a opção continue selecionada após o recarregamento -->
+            <option value="{{ b.id }}" {% if banca_selecionada == b.id %}selected{% endif %}>{{ b }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    {% if 'orgao' in filtros_campos %}
+    <div class="filtro-grupo">
+        <label for="orgao">Órgão</label>
+        <select name="orgao" id="orgao">
+            <option value="">Todos os Órgãos</option>
+            {% for o in orgaos %}
+            <option value="{{ o.id }}" {% if orgao_selecionado == o.id %}selected{% endif %}>{{ o }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    {% if 'cargo' in filtros_campos %}
+    <div class="filtro-grupo">
+        <label for="cargo">Cargo</label>
+        <select name="cargo" id="cargo">
+            <option value="">Todos os Cargos</option>
+            {% for c in cargos %}
+            <option value="{{ c.id }}" {% if cargo_selecionado == c.id %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    {% if 'materia' in filtros_campos %}
+    <div class="filtro-grupo">
+        <label for="materia">Matéria</label>
+        <select name="materia" id="materia">
+            <option value="">Todas as Matérias</option>
+            {% for m in materias %}
+            <option value="{{ m.id }}" {% if materia_selecionada == m.id %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    {% if 'topico' in filtros_campos %}
+    <div class="filtro-grupo">
+        <label for="topico">Tópico</label>
+        <select name="topico" id="topico">
+            <option value="">Todos os Tópicos</option>
+            {# Tópicos agrupados por matéria (optgroup); com uma matéria escolhida, a view envia só os dela #}
+            {% regroup topicos by materia as grupos %}
+            {% for grupo in grupos %}
+            <optgroup label="{{ grupo.grouper }}">
+                {% for t in grupo.list %}
+                <option value="{{ t.id }}" {% if topico_selecionado == t.id %}selected{% endif %}>{{ t.nome }}</option>
+                {% endfor %}
+            </optgroup>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    {% if 'ano' in filtros_campos %}
+    <div class="filtro-grupo">
+        <label for="ano">Ano</label>
+        <select name="ano" id="ano">
+            <option value="">Todos os Anos</option>
+            {% for a in anos %}
+            <option value="{{ a }}" {% if ano_selecionado == a %}selected{% endif %}>{{ a }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    <div class="filtro-grupo filtro-acoes">
+        <!-- Só aparece se o JavaScript estiver desativado no navegador -->
+        <noscript><button type="submit" class="btn-filtrar">Aplicar Filtros</button></noscript>
+        <a href="{{ request.path }}" class="btn-limpar">Limpar</a>
+    </div>
+</form>

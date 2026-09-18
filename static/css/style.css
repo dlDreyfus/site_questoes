@@ -190,6 +190,7 @@ select:focus-visible {
 
 .topo-menu {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     /* No celular o menu ocupa a linha inteira, abaixo da marca */
@@ -203,8 +204,9 @@ select:focus-visible {
 }
 
 .topo-usuario {
-    /* Nome longo não quebra o layout: é cortado com "..." (o nome completo aparece no title) */
-    flex: 1;
+    /* No celular o nome fica numa linha própria, com os botões abaixo.
+       Nome longo não quebra o layout: é cortado com "..." (o nome completo aparece no title) */
+    flex: 1 1 100%;
     min-width: 0;
     overflow: hidden;
     white-space: nowrap;
@@ -212,9 +214,11 @@ select:focus-visible {
     color: var(--cor-texto-suave);
 }
 
+/* Botões do cabeçalho mais compactos no celular: cabem os 3 do administrador numa linha */
 .topo-menu .btn-desempenho,
 .topo-menu .btn-limpar {
-    padding: 8px 14px;
+    padding: 8px 10px;
+    font-size: 0.9rem;
 }
 
 /* ---------- Alertas (mensagens do Django) ---------- */
@@ -243,6 +247,12 @@ select:focus-visible {
     background-color: #fff3cd;
     color: #856404;
     border-color: #ffeeba;
+}
+
+.info {
+    background-color: #cff4fc;
+    color: #055160;
+    border-color: #b6effb;
 }
 
 /* ---------- Barra de filtros (lista de questões) ---------- */
@@ -401,10 +411,233 @@ select:focus-visible {
     background-color: #e7f1ff;
 }
 
+/* Resolução oficial, exibida logo após o usuário responder a questão */
+.resolucao {
+    margin: 0 0 12px;
+    padding: 4px 14px 12px;
+    border-left: 4px solid var(--cor-primaria);
+    border-radius: var(--raio-pequeno);
+    background-color: #e7f1ff;
+}
+
+.resolucao > summary {
+    /* list-item mantém a setinha (▸) para recolher; padding garante a área de toque */
+    display: list-item;
+    padding: 8px 0;
+    font-weight: bold;
+    color: var(--cor-primaria);
+    cursor: pointer;
+}
+
+.resolucao p {
+    margin: 4px 0 0;
+}
+
+/* Botões Curtir e Descurtir, lado a lado, abaixo do texto da resolução */
+.resolucao .votos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-top: 10px;
+}
+
 /* No celular o botão Responder ocupa a largura toda (mais fácil de tocar) */
 .btn-submit {
     width: 100%;
     margin-top: 12px;
+}
+
+/* ---------- Fórum (comentários das questões) ---------- */
+/* Esconde um texto na tela, mas mantém para leitores de tela (ex: rótulo da caixa de resposta) */
+.visualmente-oculto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.forum {
+    margin-top: 16px;
+    border-top: 1px solid var(--cor-borda);
+    padding-top: 8px;
+}
+
+.forum > summary {
+    /* list-item mantém a setinha (▸); padding garante a área de toque */
+    display: list-item;
+    padding: 10px 0;
+    font-weight: bold;
+    color: var(--cor-primaria);
+    cursor: pointer;
+}
+
+.forum-vazio {
+    color: var(--cor-secundaria);
+    margin: 8px 0;
+}
+
+.conversa {
+    margin: 12px 0;
+}
+
+.comentario {
+    padding: 10px 12px;
+    border-radius: var(--raio-pequeno);
+    background-color: var(--cor-hover);
+    border: 1px solid var(--cor-borda);
+}
+
+/* Respostas: recuo pequeno com uma linha à esquerda (no celular não "empurram" o texto) */
+.respostas {
+    margin: 8px 0 0 12px;
+    padding-left: 10px;
+    border-left: 3px solid var(--cor-borda);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.comentario-cabecalho {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 10px;
+    font-size: 0.9em;
+}
+
+.comentario-autor {
+    color: var(--cor-texto);
+}
+
+.comentario-cabecalho time {
+    color: var(--cor-secundaria);
+    font-size: 0.9em;
+}
+
+.comentario-texto {
+    margin: 6px 0 0;
+    white-space: normal;
+}
+
+/* Linha de ações do comentário: [👍 Curtir] 3 · Responder */
+.comentario-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 16px;
+    margin-top: 4px;
+}
+
+/* Com o "Responder" aberto, o formulário de resposta ocupa a linha inteira abaixo das ações */
+.comentario-responder[open] {
+    flex-basis: 100%;
+}
+
+.form-curtir {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+}
+
+.btn-curtir {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    /* Área de toque confortável, mas visualmente discreta como o link "Responder" */
+    min-height: 36px;
+    padding: 4px 10px;
+    border: 1px solid var(--cor-borda-forte);
+    border-radius: 999px;
+    background-color: var(--cor-superficie);
+    color: var(--cor-texto-suave);
+    font-size: 0.85em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.btn-curtir:hover {
+    border-color: var(--cor-primaria);
+    color: var(--cor-primaria);
+}
+
+/* Estado "curtido" (aria-pressed=true): destaque azul */
+.btn-curtir[aria-pressed="true"] {
+    border-color: var(--cor-primaria);
+    background-color: #e7f1ff;
+    color: var(--cor-primaria);
+}
+
+/* Descurtir (👎, só na resolução): vermelho no hover e quando marcado, para diferenciar do Curtir */
+.form-curtir[data-tipo="descurtir"] .btn-curtir:hover {
+    border-color: var(--cor-perigo);
+    color: var(--cor-perigo);
+}
+
+.form-curtir[data-tipo="descurtir"] .btn-curtir[aria-pressed="true"] {
+    border-color: var(--cor-perigo);
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+.btn-curtir:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.curtidas-total {
+    min-width: 1ch;
+    color: var(--cor-secundaria);
+    font-size: 0.9em;
+}
+
+.comentario-responder > summary {
+    display: inline-block;
+    padding: 6px 0;
+    color: var(--cor-primaria);
+    font-size: 0.9em;
+    font-weight: bold;
+    cursor: pointer;
+    list-style: none;
+}
+
+/* Some com a setinha do "Responder" no Safari (list-style não basta nele) */
+.comentario-responder > summary::-webkit-details-marker {
+    display: none;
+}
+
+.form-comentario {
+    margin-top: 8px;
+}
+
+.form-comentario label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: bold;
+    font-size: 0.9em;
+    color: var(--cor-texto-suave);
+}
+
+.form-comentario textarea {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--cor-borda-forte);
+    border-radius: var(--raio-pequeno);
+    /* Só cresce na vertical, e com altura máxima: a caixa não fica "muito grande" */
+    resize: vertical;
+    max-height: 240px;
+    line-height: 1.4;
+}
+
+.form-comentario .btn-submit {
+    margin-top: 8px;
 }
 
 /* ---------- Paginação ---------- */
@@ -554,6 +787,104 @@ body.pagina-login {
     color: #842029;
 }
 
+/* ---------- Painel genérico (ex: importação de planilha) ---------- */
+.painel {
+    background: var(--cor-superficie);
+    padding: clamp(16px, 4vw, 24px);
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+    margin-bottom: 20px;
+}
+
+.painel-texto {
+    margin: 0 0 16px;
+    color: var(--cor-texto-suave);
+}
+
+/* Formulário de upload do .csv */
+.form-upload p {
+    margin: 0 0 12px;
+}
+
+.form-upload label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: bold;
+    font-size: 0.9em;
+    color: var(--cor-texto-suave);
+}
+
+.form-upload input[type="file"] {
+    width: 100%;
+    min-height: var(--alvo-toque);
+    padding: 8px;
+    border: 1px dashed var(--cor-borda-forte);
+    border-radius: var(--raio-pequeno);
+    background-color: var(--cor-hover);
+    cursor: pointer;
+}
+
+/* Lista de erros da importação (dentro do alerta vermelho) */
+.importacao-erros p {
+    margin: 0 0 8px;
+}
+
+.importacao-erros ul {
+    margin: 0;
+    padding-left: 20px;
+    font-weight: normal;
+}
+
+.importacao-erros li + li {
+    margin-top: 4px;
+}
+
+/* Ajuda recolhível com as colunas da planilha */
+.colunas-ajuda summary {
+    /* list-item mantém a setinha (▸) que indica que o item abre; padding garante a área de toque */
+    display: list-item;
+    padding: 10px 0;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.colunas-ajuda[open] summary {
+    margin-bottom: 12px;
+}
+
+/* Tabelas largas rolam na horizontal dentro da própria caixa, sem empurrar a página no celular */
+.tabela-rolavel {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.tabela {
+    width: 100%;
+    min-width: 560px;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+.tabela th,
+.tabela td {
+    padding: 8px;
+    border-bottom: 1px solid var(--cor-borda);
+    text-align: left;
+    vertical-align: top;
+}
+
+.tabela th {
+    background-color: var(--cor-hover);
+}
+
+.form-upload .errorlist {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 8px;
+    color: #842029;
+    font-size: 0.9em;
+}
+
 /* ---------- Dashboard de desempenho ---------- */
 .dashboard-header {
     display: flex;
@@ -625,6 +956,12 @@ body.pagina-login {
         max-width: 220px;
     }
 
+    .topo-menu .btn-desempenho,
+    .topo-menu .btn-limpar {
+        padding: 8px 14px;
+        font-size: 1rem;
+    }
+
     .filtro-form {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -693,6 +1030,11 @@ body.pagina-login {
     /* Filtros em 2 linhas de 3 (Banca, Órgão, Cargo / Matéria, Tópico, Ano) */
     .filtro-form {
         grid-template-columns: repeat(3, 1fr);
+    }
+
+    /* Com 4 filtros (painel Meu Desempenho), todos numa linha só */
+    .filtro-form[data-campos="4"] {
+        grid-template-columns: repeat(4, 1fr);
     }
 }
 

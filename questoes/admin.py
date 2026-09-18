@@ -6,7 +6,7 @@ from django.db import transaction
 from django.forms.models import BaseInlineFormSet
 # Importa todos os models deste app para registrá-los no painel.
 from .models import (
-    Banca, Orgao, Cargo, Materia, Topico, Questao, Alternativa, ResolucaoOficial, HistoricoResolucao,
+    Banca, Orgao, Cargo, Materia, Topico, Questao, Alternativa, ResolucaoOficial, HistoricoResolucao, Comentario,
 )
 
 # Cadastros simples
@@ -93,22 +93,38 @@ class AlternativaInline(admin.TabularInline):
 # Classe que personaliza como as questões aparecem e são editadas no admin.
 class QuestaoAdmin(admin.ModelAdmin):
     # O que vai aparecer na lista geral de questões
-    list_display = ('id', 'banca', 'orgao', 'ano', 'tipo')
+    list_display = ('id', 'codigo', 'banca', 'orgao', 'ano', 'tipo')
     # Traz banca e órgão na mesma consulta da listagem (evita uma consulta por linha)
     list_select_related = ('banca', 'orgao')
 
     # Cria uma barra lateral para filtrar rapidamente
     list_filter = ('banca', 'ano', 'tipo')
 
-    # Cria uma barra de pesquisa que busca pelo texto do enunciado
-    # (a vírgula no final é obrigatória: sem ela não seria uma tupla, e sim só um texto).
-    search_fields = ('enunciado',)
+    # Cria uma barra de pesquisa que busca pelo texto do enunciado e pelo código da importação
+    search_fields = ('enunciado', 'codigo')
 
     # Troca a caixa de seleção múltipla dos tópicos por duas listas com busca
     filter_horizontal = ('topicos',)
 
     # Diz ao Django para colocar as alternativas dentro da tela da questão
     inlines = [AlternativaInline]
+
+
+# Fórum: moderação dos comentários (buscar, ver o contexto e apagar os inadequados).
+# Apagar um comentário principal apaga também as respostas dele.
+@admin.register(Comentario)
+class ComentarioAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'texto_resumido', 'data_criacao')
+    list_filter = ('data_criacao',)
+    search_fields = ('texto', 'usuario__username')
+    date_hierarchy = 'data_criacao'
+    list_select_related = ('usuario',)
+    # raw_id_fields: em vez de um dropdown com TODAS as questões/comentários, um campo com o id
+    raw_id_fields = ('questao', 'resposta_a', 'usuario')
+
+    @admin.display(description='texto')
+    def texto_resumido(self, comentario):
+        return comentario.texto if len(comentario.texto) <= 80 else f'{comentario.texto[:80]}…'
 
 
 # Histórico de respostas dos usuários: somente leitura (é gerado pelo site, não pelo admin)

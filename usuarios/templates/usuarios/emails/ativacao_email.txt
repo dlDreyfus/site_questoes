@@ -1,7 +1,8 @@
 {% autoescape off %}Olá, {{ usuario.username }}!
 
 Obrigado por se cadastrar no Simulado.
-Para ativar sua conta e começar a resolver questões, acesse o link abaixo:
+Para ativar sua conta e começar a resolver questões, acesse o link abaixo
+e clique no botão "Ativar minha conta":
 
 {{ link }}
 
