@@ -12,8 +12,8 @@ desempenho e discutir as questões com outros usuários.
   filtrável por banca, cargo, matéria e tópico.
 - **Fórum por questão**: comentários, respostas a comentários e curtidas; a resolução oficial
   aceita curtidas e descurtidas.
-- **Contas de usuário**: cadastro com ativação por e-mail (em dois passos, para que filtros de
-  e-mail que abrem links não ativem a conta sozinhos), login, logout e recuperação de senha.
+- **Contas de usuário**: cadastro (a conta já nasce ativa e o usuário entra logado), login, logout
+  e recuperação de senha por e-mail.
 - **Importação de questões por planilha CSV** (`/importar/`), restrita a quem tem a permissão
   `questoes.importar_questoes`.
 - **Admin do Django** (`/admin/`) para cadastrar e editar bancas, órgãos, cargos, matérias,
@@ -44,8 +44,8 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Acesse http://127.0.0.1:8000/. O superusuário já nasce ativo e pode entrar direto pelo login
-ou pelo `/admin/`.
+Acesse http://127.0.0.1:8000/. Crie uma conta em "Cadastrar Novo Usuário" ou entre com o
+superusuário, que também dá acesso ao `/admin/`.
 
 ### Variáveis de ambiente
 
@@ -58,7 +58,7 @@ fora do git. As do ambiente têm prioridade.
 
 ### E-mails
 
-O cadastro e a recuperação de senha enviam e-mails. Nenhum servidor de e-mail vem configurado,
+Só a recuperação de senha envia e-mails. Nenhum servidor de e-mail vem configurado,
 então o Django tenta usar um servidor SMTP em `localhost:25`. Para testar localmente sem servidor
 de e-mail, defina em `core/settings.py`:
 
@@ -66,8 +66,7 @@ de e-mail, defina em `core/settings.py`:
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 ```
 
-Assim os e-mails, com o link de ativação, aparecem no terminal do `runserver`. Outra opção é
-ativar a conta pelo admin, marcando o campo "Ativo" do usuário.
+Assim os e-mails, com o link para redefinir a senha, aparecem no terminal do `runserver`.
 
 ## Importação de questões por CSV
 
@@ -98,7 +97,7 @@ python manage.py test
 ```
 core/        configurações do projeto (settings, urls)
 questoes/    questões, resolução, filtros, fórum, curtidas e importação CSV
-usuarios/    modelo de usuário próprio, cadastro, ativação, login e painel de desempenho
+usuarios/    modelo de usuário próprio, cadastro, login, recuperação de senha e painel de desempenho
 templates/   base.html compartilhado
 static/      CSS e JavaScript
 ```

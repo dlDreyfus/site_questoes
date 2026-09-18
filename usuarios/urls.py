@@ -1,7 +1,6 @@
 from django.urls import path, reverse_lazy
 from django.contrib.auth import views as auth_views
 from . import views # Importamos as views deste app
-from .forms import LoginForm
 
 app_name = 'usuarios'
 
@@ -10,18 +9,12 @@ urlpatterns = [
     # redirect_authenticated_user: quem já está logado e abre o login é levado direto ao LOGIN_REDIRECT_URL
     path(
         'login/',
-        # authentication_form: LoginForm avisa quando a conta ainda não foi ativada pelo e-mail
-        auth_views.LoginView.as_view(
-            template_name='usuarios/login.html', authentication_form=LoginForm, redirect_authenticated_user=True,
-        ),
+        auth_views.LoginView.as_view(template_name='usuarios/login.html', redirect_authenticated_user=True),
         name='login',
     ),
     path('logout/', auth_views.LogoutView.as_view(next_page='usuarios:login'), name='logout'),
-    # Cadastro de novo usuário (link na tela de login) e ativação da conta por e-mail
+    # Cadastro de novo usuário (link na tela de login)
     path('cadastro/', views.cadastro, name='cadastro'),
-    path('ativacao/enviada/', views.ativacao_enviada, name='ativacao_enviada'),
-    path('ativacao/reenviar/', views.reenviar_ativacao, name='reenviar_ativacao'),
-    path('ativar/<uidb64>/<token>/', views.ativar_conta, name='ativar_conta'),
 
     # Recuperação de senha (views nativas do Django), em 4 passos:
     # 1. Usuário informa o e-mail e recebe um link com token de uso único

@@ -12,7 +12,7 @@ class Usuario(AbstractUser):
         verbose_name_plural = 'usuários'
         constraints = [
             # Um e-mail só pode pertencer a uma conta (sem diferenciar maiúsculas de minúsculas),
-            # porque a ativação e a recuperação de senha são feitas por ele.
+            # porque a recuperação de senha é feita por ele.
             # Contas sem e-mail (ex: criadas pelo admin) continuam permitidas.
             models.UniqueConstraint(
                 Lower('email'),

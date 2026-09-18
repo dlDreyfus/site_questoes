@@ -13,10 +13,6 @@
         {{ form.as_p }} <!-- O Django renderiza os campos de usuário e senha automaticamente -->
         <button type="submit">Entrar</button>
     </form>
-    {# conta_inativa é marcado pelo LoginForm quando a senha está certa mas a conta não foi ativada #}
-    {% if form.conta_inativa %}
-    <p class="login-link"><a href="{% url 'usuarios:reenviar_ativacao' %}">Reenviar link de ativação</a></p>
-    {% endif %}
     <p class="login-link"><a href="{% url 'usuarios:recuperar_senha' %}">Esqueceu a senha? Recuperar Senha</a></p>
     <p class="login-link">Ainda não tem conta? <a href="{% url 'usuarios:cadastro' %}">Cadastrar Novo Usuário</a></p>
 </div>
