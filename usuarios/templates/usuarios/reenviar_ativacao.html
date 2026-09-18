@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block title %}Reenviar Ativação - Simulado{% endblock %}
+
+{% block body_class %}pagina-login{% endblock %}
+
+{% block content %}
+<div class="login-box">
+    <h2>Reenviar link de ativação</h2>
+    <p class="login-texto">Informe o e-mail usado no cadastro. Enviaremos um novo link para ativar sua conta.</p>
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Reenviar link</button>
+    </form>
+    <p class="login-link"><a href="{% url 'usuarios:login' %}">Voltar para o login</a></p>
+</div>
+{% endblock %}

@@ -38,8 +38,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-# aplicativo criado chamado _questoes_
-    'questoes'
+    # Apps do projeto
+    'questoes',
+    'usuarios',
 
 ]
 
@@ -58,7 +59,8 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # Pasta templates/ na raiz do projeto: base.html e templates compartilhados por todos os apps
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -106,9 +108,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'pt-br'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Recife'
 
 USE_I18N = True
 
@@ -120,12 +122,35 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Pasta static/ na raiz do projeto: CSS, JS e imagens compartilhados por todos os apps
+# (os apps continuam podendo ter a própria pasta <app>/static/, que o Django encontra sozinho)
+STATICFILES_DIRS = [BASE_DIR / 'static']
+
+# Pasta onde o comando collectstatic reúne todos os arquivos estáticos (usada em produção)
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
+# Em desenvolvimento, o backend "console" não envia nada: o e-mail (ex: link de recuperação de senha)
+# é impresso no terminal do runserver. Em produção, troque por um servidor SMTP real.
 MAILERS = {
     'default': {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+# Remetente dos e-mails enviados pelo site (ex: recuperação de senha)
+DEFAULT_FROM_EMAIL = 'Simulado <nao-responda@simulado.local>'
+
+# Validade do link de recuperação de senha, em segundos (1 dia; o padrão do Django é 3 dias)
+PASSWORD_RESET_TIMEOUT = 60 * 60 * 24
+
+# Model de usuário próprio do projeto (usuarios/models.py)
+AUTH_USER_MODEL = 'usuarios.Usuario'
+
+# Direciona o usuário após ele logar ou deslogar
+
+LOGIN_REDIRECT_URL = 'questoes:lista_questoes'
+LOGIN_URL = 'usuarios:login'

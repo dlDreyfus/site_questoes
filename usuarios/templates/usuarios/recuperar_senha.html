@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block title %}Recuperar Senha - Simulado{% endblock %}
+
+{% block body_class %}pagina-login{% endblock %}
+
+{% block content %}
+<div class="login-box">
+    <h2>Recuperar Senha</h2>
+    <p class="login-texto">Informe o e-mail da sua conta. Enviaremos um link para você criar uma nova senha.</p>
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Enviar link</button>
+    </form>
+    <p class="login-link"><a href="{% url 'usuarios:login' %}">Voltar para o login</a></p>
+</div>
+{% endblock %}

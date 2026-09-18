@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}Cadastro - Simulado{% endblock %}
+
+{# Mesmo layout centralizado da tela de login (static/css/style.css) #}
+{% block body_class %}pagina-login{% endblock %}
+
+{% block content %}
+<div class="login-box">
+    <h2>Cadastrar Novo Usuário</h2>
+    <form method="POST">
+        {% csrf_token %}
+        {# O Django renderiza usuário, e-mail, senha e confirmação, com as regras de senha e os erros #}
+        {{ form.as_p }}
+        <button type="submit">Cadastrar</button>
+    </form>
+    <p class="login-link">Já tem conta? <a href="{% url 'usuarios:login' %}">Entrar</a></p>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - Simulado{% endblock %}
+
+{# Classe usada no static/css/style.css para centralizar a caixa de login na tela #}
+{% block body_class %}pagina-login{% endblock %}
+
+{% block content %}
+<div class="login-box">
+    <h2>Acessar Simulado</h2>
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }} <!-- O Django renderiza os campos de usuário e senha automaticamente -->
+        <button type="submit">Entrar</button>
+    </form>
+    {# conta_inativa é marcado pelo LoginForm quando a senha está certa mas a conta não foi ativada #}
+    {% if form.conta_inativa %}
+    <p class="login-link"><a href="{% url 'usuarios:reenviar_ativacao' %}">Reenviar link de ativação</a></p>
+    {% endif %}
+    <p class="login-link"><a href="{% url 'usuarios:recuperar_senha' %}">Esqueceu a senha? Recuperar Senha</a></p>
+    <p class="login-link">Ainda não tem conta? <a href="{% url 'usuarios:cadastro' %}">Cadastrar Novo Usuário</a></p>
+</div>
+{% endblock %}

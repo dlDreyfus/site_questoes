@@ -1,0 +1,10 @@
+{% autoescape off %}Olá, {{ usuario.username }}!
+
+Obrigado por se cadastrar no Simulado.
+Para ativar sua conta e começar a resolver questões, acesse o link abaixo:
+
+{{ link }}
+
+O link só pode ser usado uma vez e expira em 24 horas.
+Se você não fez este cadastro, ignore este e-mail: a conta não será ativada.
+{% endautoescape %}

@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}E-mail Enviado - Simulado{% endblock %}
+
+{% block body_class %}pagina-login{% endblock %}
+
+{% block content %}
+<div class="login-box">
+    <h2>Verifique seu e-mail</h2>
+    {# Mensagem genérica de propósito: não revela se o e-mail informado tem conta no site #}
+    <p class="login-texto">
+        Se existir uma conta com o e-mail informado, você receberá em instantes um link para criar uma nova senha.
+        Confira também a caixa de spam.
+    </p>
+    <p class="login-link"><a href="{% url 'usuarios:login' %}">Voltar para o login</a></p>
+</div>
+{% endblock %}

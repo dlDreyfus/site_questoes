@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Nova Senha - Simulado{% endblock %}
+
+{% block body_class %}pagina-login{% endblock %}
+
+{% block content %}
+<div class="login-box">
+    {# validlink vem da view: é falso se o link expirou ou já foi usado #}
+    {% if validlink %}
+    <h2>Criar Nova Senha</h2>
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Salvar nova senha</button>
+    </form>
+    {% else %}
+    <h2>Link inválido</h2>
+    <p class="login-texto">Este link de recuperação é inválido, expirou ou já foi utilizado. Peça um novo link.</p>
+    <p class="login-link"><a href="{% url 'usuarios:recuperar_senha' %}">Recuperar senha novamente</a></p>
+    {% endif %}
+</div>
+{% endblock %}

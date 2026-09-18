@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}Link Inválido - Simulado{% endblock %}
+
+{% block body_class %}pagina-login{% endblock %}
+
+{% block content %}
+<div class="login-box">
+    <h2>Link inválido</h2>
+    <p class="login-texto">
+        Este link de ativação é inválido, expirou ou já foi utilizado.
+        Se a sua conta já foi ativada, é só entrar normalmente.
+    </p>
+    <p class="login-link"><a href="{% url 'usuarios:reenviar_ativacao' %}">Pedir um novo link de ativação</a></p>
+    <p class="login-link"><a href="{% url 'usuarios:login' %}">Ir para o login</a></p>
+</div>
+{% endblock %}
