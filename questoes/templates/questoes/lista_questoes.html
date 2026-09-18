@@ -1,0 +1,33 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Questões</title>
+    <!-- O Django resolve o caminho absoluto do arquivo automaticamente -->
+    <link rel="stylesheet" href="{% static 'questoes/css/style.css' %}">
+</head>
+
+<body>
+
+    <h1>Questões Cadastradas</h1>
+
+    <!-- O Django usa chaves e porcentagens para rodar lógica no HTML -->
+    {% for questao in questoes %}
+    <div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 20px;">
+        <p><strong>Banca:</strong> {{ questao.banca.sigla }} | <strong>Ano:</strong> {{ questao.ano }}</p>
+        <p>{{ questao.enunciado }}</p>
+
+        <ul>
+            {% for alternativa in questao.alternativas.all %}
+            <li>{{ alternativa.texto }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% empty %}
+    <p>Nenhuma questão cadastrada ainda.</p>
+    {% endfor %}
+</body>
+
+</html>
