@@ -1,6 +1,8 @@
 # Importa o módulo de modelos do Django (ORM): fornece a classe base Model
 # e os tipos de campo usados para descrever as tabelas do banco em Python.
 from django.db import models
+# Importa as configurações do projeto para referenciar o model de usuário (AUTH_USER_MODEL).
+from django.conf import settings
 
 # 1. TABELAS DE DOMÍNIO (Nossos Filtros Básicos)
 
@@ -57,6 +59,9 @@ class Topico(models.Model):
     # related_name='topicos' permite acessar os tópicos a partir da matéria: materia.topicos.all()
     materia = models.ForeignKey(Materia, on_delete=models.CASCADE, related_name='topicos')
 
+    class Meta:
+        ordering = ['materia__nome', 'nome']
+
     # Representação textual do tópico.
     def __str__(self):
         # Exibe "Matéria - Tópico" para deixar claro a qual matéria o tópico pertence.
@@ -92,25 +97,45 @@ class Questao(models.Model):
     # permite fazer topico.questoes.all().
     topicos = models.ManyToManyField(Topico, related_name='questoes')
 
+    class Meta:
+        # Ordem padrão da listagem: provas mais recentes primeiro (a paginação exige ordem definida).
+        ordering = ['-ano', 'id']
+
     # Representação textual da questão.
     def __str__(self):
         # Exibe algo como "Questão 12 - FGV (2024)".
-        return f"Questão {self.id} - {self.banca.sigla} ({self.ano})"
+        return f"Questão {self.id} - {self.banca} ({self.ano})"
 
 # Tabela das alternativas de cada questão.
 class Alternativa(models.Model):
     # 1:N - Se a questão for apagada, as alternativas dela são apagadas (CASCADE)
     # related_name='alternativas' permite fazer questao.alternativas.all().
     questao = models.ForeignKey(Questao, on_delete=models.CASCADE, related_name='alternativas')
+    # Posição da alternativa na questão (1 = A, 2 = B, ...), para exibir sempre na mesma ordem.
+    ordem = models.PositiveSmallIntegerField(default=0)
     # Texto da alternativa.
     texto = models.TextField()
     # Marca se esta é a alternativa correta; por padrão, é falsa.
     is_correta = models.BooleanField(default=False)
 
+    class Meta:
+        # Sem ordering o banco pode devolver as alternativas em qualquer ordem; 'id' desempata.
+        ordering = ['ordem', 'id']
+        constraints = [
+            # Garante no próprio banco que cada questão tenha no máximo UMA alternativa correta.
+            # (O "exatamente uma" é validado no admin, em AlternativaFormSet.)
+            models.UniqueConstraint(
+                fields=['questao'],
+                condition=models.Q(is_correta=True),
+                name='uma_alternativa_correta_por_questao',
+                violation_error_message='Esta questão já possui uma alternativa correta.',
+            ),
+        ]
+
     # Representação textual da alternativa.
     def __str__(self):
-        # Exibe a qual questão a alternativa pertence.
-        return f"Alternativa da Questão {self.questao.id}"
+        # questao_id já está no objeto; usar self.questao.id faria uma consulta extra ao banco.
+        return f"Alternativa da Questão {self.questao_id}"
 
 # Tabela com o comentário/resolução oficial de cada questão.
 class ResolucaoOficial(models.Model):
@@ -123,4 +148,30 @@ class ResolucaoOficial(models.Model):
     # Representação textual da resolução.
     def __str__(self):
         # Exibe a qual questão a resolução pertence.
-        return f"Resolução - Questão {self.questao.id}"
+        return f"Resolução - Questão {self.questao_id}"
+
+# 3. HISTÓRICO DO USUÁRIO
+
+# Tabela com cada tentativa de resposta de um usuário.
+class HistoricoResolucao(models.Model):
+    # Usuário que respondeu; settings.AUTH_USER_MODEL aponta para o User do Django.
+    # related_name='historico' permite fazer usuario.historico.all().
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='historico')
+    # Questão respondida; se a questão for apagada, o histórico dela vai junto.
+    questao = models.ForeignKey(Questao, on_delete=models.CASCADE, related_name='historico')
+    # Alternativa marcada pelo usuário. SET_NULL: se a alternativa for apagada/corrigida no admin,
+    # a tentativa continua no histórico (o campo 'acertou' preserva o resultado).
+    alternativa_escolhida = models.ForeignKey(Alternativa, on_delete=models.SET_NULL, null=True, blank=True)
+    # Guarda se a tentativa foi um acerto.
+    acertou = models.BooleanField()
+    # Preenchido automaticamente com a data/hora da resposta.
+    data_resposta = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-data_resposta']
+        verbose_name = 'histórico de resolução'
+        verbose_name_plural = 'histórico de resoluções'
+
+    # Representação textual da tentativa.
+    def __str__(self):
+        return f"{self.usuario} - Questão {self.questao_id} - {'Acertou' if self.acertou else 'Errou'}"
