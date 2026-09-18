@@ -1,0 +1,58 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <!-- Faz o navegador do celular/tablet usar a largura real da tela (base da responsividade) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Cor da barra do navegador no celular (Chrome/Android) -->
+    <meta name="theme-color" content="#0d6efd">
+    <!-- Cada página define o próprio título no bloco 'title' -->
+    <title>{% block title %}Simulado{% endblock %}</title>
+    <!-- CSS compartilhado por todo o site (pasta static/ da raiz) -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <!-- Espaço para uma página incluir CSS extra -->
+    {% block extra_css %}{% endblock %}
+</head>
+
+<!-- O bloco 'body_class' permite que uma página mude o layout (ex: tela de login centralizada) -->
+<body class="{% block body_class %}{% endblock %}">
+
+    <!-- Cabeçalho do usuário logado: só aparece para quem está logado -->
+    {% if user.is_authenticated %}
+    <header class="topo">
+        <div class="topo-conteudo">
+            <a href="{% url 'questoes:lista_questoes' %}" class="topo-marca">Simulado</a>
+            <nav class="topo-menu" aria-label="Menu do usuário">
+                <span class="topo-usuario" title="{{ user.username }}">Olá, {{ user.username }}</span>
+                <a href="{% url 'usuarios:dashboard' %}" class="btn-desempenho">Meu Desempenho</a>
+                <!-- O LogoutView exige POST, por isso o Sair é um formulário -->
+                <form method="POST" action="{% url 'usuarios:logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-limpar">Sair</button>
+                </form>
+            </nav>
+        </div>
+    </header>
+    {% endif %}
+
+    <!-- Área principal: largura máxima confortável para leitura, centralizada em telas grandes -->
+    <main class="conteudo">
+        {# Mensagens gerais do site (ex: conta criada). As que têm extra_tags são de uma questão #}
+        {# específica e aparecem dentro do card dela, em lista_questoes.html #}
+        {% for message in messages %}
+        {% if not message.extra_tags %}
+        <div class="alert {{ message.level_tag }}" role="status">{{ message }}</div>
+        {% endif %}
+        {% endfor %}
+
+        <!-- Conteúdo específico de cada página -->
+        {% block content %}{% endblock %}
+    </main>
+
+    {# Espaço para uma página incluir JavaScript (ex: a tag static com 'js/arquivo.js') #}
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>

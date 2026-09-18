@@ -1,0 +1,704 @@
+/* ==========================================================================
+   Estilo do site — abordagem "mobile-first":
+   as regras básicas valem para o CELULAR; telas maiores recebem ajustes
+   nos blocos @media (min-width: ...) no fim de cada seção.
+
+   Pontos de quebra (breakpoints) usados:
+     576px  → celular grande / deitado
+     768px  → tablet
+     1024px → computador
+   ========================================================================== */
+
+/* ---------- Variáveis (cores, espaçamentos e bordas reutilizados) ---------- */
+:root {
+    --cor-primaria: #0d6efd;
+    --cor-primaria-escura: #0b5ed7;
+    --cor-sucesso: #28a745;
+    --cor-sucesso-escura: #218838;
+    --cor-perigo: #dc3545;
+    --cor-secundaria: #6c757d;
+    --cor-secundaria-escura: #5c636a;
+    --cor-texto: #333;
+    --cor-texto-suave: #555;
+    --cor-fundo: #f4f6f9;
+    --cor-superficie: #fff;
+    --cor-borda: #dee2e6;
+    --cor-borda-forte: #ccc;
+    --cor-hover: #f8f9fa;
+    --raio: 8px;
+    --raio-pequeno: 4px;
+    --sombra: 0 2px 4px rgba(0, 0, 0, 0.1);
+    /* Espaçamento lateral que cresce com a tela: 12px no celular, até 24px no computador */
+    --espaco-lateral: clamp(12px, 4vw, 24px);
+    /* Área mínima de toque recomendada para dedos (WCAG / Apple / Google) */
+    --alvo-toque: 44px;
+    --largura-maxima: 880px;
+}
+
+/* ---------- Base ---------- */
+/* border-box: padding e borda contam dentro da largura (evita elementos "vazando" da tela) */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    /* Impede o iOS de aumentar o texto sozinho ao girar o celular */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 1rem;
+    line-height: 1.5;
+    background-color: var(--cor-fundo);
+    color: var(--cor-texto);
+}
+
+h1 {
+    /* Título fluido: menor no celular, maior no computador */
+    font-size: clamp(1.4rem, 1.1rem + 1.5vw, 2rem);
+    margin: 0 0 16px;
+}
+
+h2 {
+    font-size: clamp(1.2rem, 1rem + 1vw, 1.5rem);
+    margin: 0 0 16px;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Campos com fonte de 16px: abaixo disso o Safari do iPhone dá zoom ao tocar no campo */
+input,
+select,
+textarea,
+button {
+    font: inherit;
+    font-size: 1rem;
+}
+
+/* Contorno visível ao navegar pelo teclado (acessibilidade) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 3px solid rgba(13, 110, 253, 0.5);
+    outline-offset: 2px;
+}
+
+/* Área principal centralizada, com largura máxima confortável para leitura */
+.conteudo {
+    width: 100%;
+    max-width: var(--largura-maxima);
+    margin: 0 auto;
+    padding: 16px var(--espaco-lateral) 32px;
+}
+
+/* ---------- Botões ---------- */
+/* Regras comuns a todos os botões e links com aparência de botão */
+.btn-submit,
+.btn-filtrar,
+.btn-limpar,
+.btn-desempenho,
+.btn-voltar,
+.pagina-login button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--alvo-toque);
+    padding: 10px 20px;
+    border: 1px solid transparent;
+    border-radius: var(--raio-pequeno);
+    font-weight: bold;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-submit,
+.btn-desempenho,
+.pagina-login button {
+    background-color: var(--cor-primaria);
+    color: #fff;
+}
+
+.btn-submit:hover,
+.btn-desempenho:hover,
+.pagina-login button:hover {
+    background-color: var(--cor-primaria-escura);
+}
+
+.btn-filtrar {
+    background-color: var(--cor-sucesso);
+    color: #fff;
+}
+
+.btn-filtrar:hover {
+    background-color: var(--cor-sucesso-escura);
+}
+
+.btn-limpar {
+    background-color: var(--cor-superficie);
+    color: var(--cor-secundaria);
+    border-color: var(--cor-borda-forte);
+}
+
+.btn-limpar:hover {
+    background-color: var(--cor-hover);
+}
+
+.btn-voltar {
+    background-color: var(--cor-secundaria);
+    color: #fff;
+}
+
+.btn-voltar:hover {
+    background-color: var(--cor-secundaria-escura);
+}
+
+/* ---------- Cabeçalho (usuário logado) ---------- */
+.topo {
+    background: var(--cor-superficie);
+    box-shadow: var(--sombra);
+}
+
+.topo-conteudo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    max-width: var(--largura-maxima);
+    margin: 0 auto;
+    padding: 8px var(--espaco-lateral);
+}
+
+.topo-marca {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: var(--cor-primaria);
+    text-decoration: none;
+}
+
+.topo-menu {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    /* No celular o menu ocupa a linha inteira, abaixo da marca */
+    flex: 1 1 100%;
+    /* Sem isto o menu não encolhe abaixo do nome completo do usuário e "vaza" da tela */
+    min-width: 0;
+}
+
+.topo-menu form {
+    margin: 0;
+}
+
+.topo-usuario {
+    /* Nome longo não quebra o layout: é cortado com "..." (o nome completo aparece no title) */
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--cor-texto-suave);
+}
+
+.topo-menu .btn-desempenho,
+.topo-menu .btn-limpar {
+    padding: 8px 14px;
+}
+
+/* ---------- Alertas (mensagens do Django) ---------- */
+.alert {
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    border: 1px solid transparent;
+    border-radius: var(--raio-pequeno);
+    font-weight: bold;
+    overflow-wrap: anywhere;
+}
+
+.success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    border-color: #badbcc;
+}
+
+.error {
+    background-color: #f8d7da;
+    color: #842029;
+    border-color: #f5c2c7;
+}
+
+.warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border-color: #ffeeba;
+}
+
+/* ---------- Barra de filtros (lista de questões) ---------- */
+/* Grade com 6 filtros: 1 coluna no celular, 2 no celular grande/tablet, 3 no computador.
+   O grupo de ações ("Limpar") fica sempre numa linha própria, no fim */
+.filtro-form {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    align-items: end;
+    background: var(--cor-superficie);
+    padding: 16px;
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+    margin-bottom: 20px;
+}
+
+.filtro-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.filtro-grupo label {
+    font-size: 0.85em;
+    color: var(--cor-texto-suave);
+    font-weight: bold;
+}
+
+.filtro-grupo select {
+    width: 100%;
+    min-height: var(--alvo-toque);
+    padding: 8px 10px;
+    border: 1px solid var(--cor-borda-forte);
+    border-radius: var(--raio-pequeno);
+    background-color: var(--cor-superficie);
+    color: var(--cor-texto);
+}
+
+/* O grupo de ações ("Aplicar Filtros" sem JS e "Limpar") ocupa a largura toda */
+.filtro-grupo .btn-filtrar,
+.filtro-grupo .btn-limpar {
+    width: 100%;
+}
+
+/* Botão "Filtros" (só no celular, e só com JavaScript: o filtros.js tira o atributo hidden) */
+.btn-filtros {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: var(--alvo-toque);
+    margin-bottom: 12px;
+    padding: 10px 16px;
+    background-color: var(--cor-superficie);
+    color: var(--cor-texto);
+    border: 1px solid var(--cor-borda-forte);
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn-filtros[hidden] {
+    display: none;
+}
+
+/* Seta à direita que gira quando o painel abre */
+.btn-filtros::after {
+    content: '▾';
+    margin-left: auto;
+    font-size: 1.2em;
+    transition: transform 0.2s;
+}
+
+.btn-filtros[aria-expanded="true"]::after {
+    transform: rotate(180deg);
+}
+
+/* Quantidade de filtros em uso, ao lado do texto "Filtros" */
+.filtros-contador {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background-color: var(--cor-primaria);
+    color: #fff;
+    font-size: 0.8em;
+}
+
+/* Painel recolhido (o atributo é colocado pelo filtros.js; no tablet/computador é ignorado) */
+.filtro-form[data-recolhido] {
+    display: none;
+}
+
+/* Contador de resultados */
+.total-questoes {
+    color: var(--cor-secundaria);
+    margin: 0 0 12px;
+}
+
+/* ---------- Questões ---------- */
+.questao-card {
+    background: var(--cor-superficie);
+    border-radius: var(--raio);
+    padding: 16px;
+    box-shadow: var(--sombra);
+    margin-bottom: 16px;
+    /* Palavras/links muito longos no enunciado quebram em vez de estourar a tela */
+    overflow-wrap: anywhere;
+}
+
+.meta-info {
+    font-size: 0.85em;
+    color: var(--cor-secundaria);
+    border-bottom: 1px solid var(--cor-borda);
+    padding-bottom: 10px;
+    margin: 0 0 12px;
+}
+
+.enunciado {
+    font-size: 1.05em;
+    margin: 0 0 12px;
+    font-weight: 500;
+}
+
+/* Cada alternativa é um "cartão" clicável: toque em qualquer parte dele marca o radio */
+.alternativa {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-height: var(--alvo-toque);
+    padding: 10px 12px;
+    margin: 8px 0;
+    border: 1px solid var(--cor-borda);
+    border-radius: var(--raio-pequeno);
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.alternativa:hover {
+    background-color: var(--cor-hover);
+}
+
+.alternativa input[type="radio"] {
+    /* Radio maior, mais fácil de acertar com o dedo */
+    flex-shrink: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin: 0.1rem 0 0;
+    accent-color: var(--cor-primaria);
+}
+
+/* Destaca a alternativa marcada (navegadores atuais suportam :has) */
+.alternativa:has(input:checked) {
+    border-color: var(--cor-primaria);
+    background-color: #e7f1ff;
+}
+
+/* No celular o botão Responder ocupa a largura toda (mais fácil de tocar) */
+.btn-submit {
+    width: 100%;
+    margin-top: 12px;
+}
+
+/* ---------- Paginação ---------- */
+.paginacao {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 20px 0;
+    text-align: center;
+}
+
+.paginacao a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--alvo-toque);
+    padding: 8px 14px;
+    border: 1px solid var(--cor-borda-forte);
+    border-radius: var(--raio-pequeno);
+    background: var(--cor-superficie);
+    color: var(--cor-primaria);
+    text-decoration: none;
+}
+
+.paginacao a:hover {
+    background-color: var(--cor-hover);
+}
+
+/* No celular, "Página X de Y" fica numa linha própria, acima dos botões */
+.paginacao span {
+    order: -1;
+    flex-basis: 100%;
+    color: var(--cor-secundaria);
+}
+
+/* ---------- Telas de login, cadastro, ativação e recuperação de senha ---------- */
+body.pagina-login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* dvh: altura real visível no celular (descontando a barra de endereço); vh é o reserva */
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+.pagina-login .conteudo {
+    max-width: 440px;
+    padding-top: 24px;
+    padding-bottom: 24px;
+}
+
+.login-box {
+    width: 100%;
+    background: var(--cor-superficie);
+    padding: clamp(20px, 5vw, 32px);
+    border-radius: var(--raio);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.login-box form p {
+    margin: 0 0 12px;
+    text-align: left;
+}
+
+.login-box label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: bold;
+    font-size: 0.9em;
+    color: var(--cor-texto-suave);
+}
+
+.pagina-login input:not([type="hidden"]) {
+    width: 100%;
+    min-height: var(--alvo-toque);
+    padding: 10px;
+    border: 1px solid var(--cor-borda-forte);
+    border-radius: var(--raio-pequeno);
+}
+
+.pagina-login button {
+    width: 100%;
+    margin-top: 4px;
+}
+
+/* Links abaixo do formulário ("Cadastrar Novo Usuário", "Recuperar Senha", "Entrar"...) */
+.login-link {
+    margin: 20px 0 0;
+    font-size: 0.9em;
+    color: var(--cor-texto-suave);
+}
+
+.login-link a {
+    /* inline-block + padding: área de toque maior sem mudar o visual */
+    display: inline-block;
+    padding: 6px 0;
+    color: var(--cor-primaria);
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.login-link a:hover {
+    text-decoration: underline;
+}
+
+/* Links seguidos ficam mais próximos entre si */
+.login-link + .login-link {
+    margin-top: 4px;
+}
+
+/* Textos explicativos das telas de ativação e recuperação de senha */
+.login-texto {
+    color: var(--cor-texto-suave);
+    font-size: 0.95em;
+    line-height: 1.5;
+}
+
+/* Textos de ajuda (regras de senha) e erros de validação gerados pelo form.as_p */
+.login-box .helptext {
+    display: block;
+    margin-top: 4px;
+    text-align: left;
+    font-size: 0.8em;
+    color: var(--cor-secundaria);
+}
+
+/* Lista de regras de senha: o form.as_p gera <p><span class="helptext"><ul>...; como <ul> não pode
+   ficar dentro de <p>, o navegador a "expulsa" para fora do parágrafo — por isso o seletor é pelo form */
+.login-box .helptext ul,
+.login-box form ul:not(.errorlist) {
+    margin: -8px 0 12px;
+    padding-left: 18px;
+    text-align: left;
+    font-size: 0.8em;
+    color: var(--cor-secundaria);
+}
+
+.login-box .errorlist {
+    list-style: none;
+    padding: 0;
+    margin: 4px 0;
+    text-align: left;
+    font-size: 0.85em;
+    color: #842029;
+}
+
+/* ---------- Dashboard de desempenho ---------- */
+.dashboard-header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.dashboard-header h2 {
+    margin: 0;
+}
+
+/* Cards: quantas colunas couberem com no mínimo 150px cada
+   (1–2 no celular, 2 no tablet, 4 no computador), sem precisar de @media */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.dashboard-card {
+    background: var(--cor-superficie);
+    padding: 16px;
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+    text-align: center;
+}
+
+.dashboard-card h3 {
+    margin: 0;
+    color: #666;
+    font-size: 0.9em;
+    text-transform: uppercase;
+}
+
+.dashboard-card .numero {
+    /* Número fluido: cabe no card mesmo no celular */
+    font-size: clamp(1.8rem, 1.4rem + 2vw, 2.5rem);
+    font-weight: bold;
+    margin: 8px 0 0;
+}
+
+/* Cores específicas para cada card */
+.dashboard-card-acertos .numero {
+    color: var(--cor-sucesso);
+}
+
+.dashboard-card-erros .numero {
+    color: var(--cor-perigo);
+}
+
+.dashboard-card-percentual .numero {
+    color: var(--cor-primaria);
+}
+
+/* ==========================================================================
+   Celular grande / deitado (≥ 576px)
+   ========================================================================== */
+@media (min-width: 576px) {
+    /* Menu volta para a mesma linha da marca */
+    .topo-menu {
+        flex: 0 1 auto;
+    }
+
+    .topo-usuario {
+        flex: 0 1 auto;
+        max-width: 220px;
+    }
+
+    .filtro-form {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* Ações numa linha própria, alinhadas à direita */
+    .filtro-acoes {
+        grid-column: 1 / -1;
+        flex-direction: row;
+        justify-content: flex-end;
+    }
+
+    .filtro-grupo .btn-filtrar,
+    .filtro-grupo .btn-limpar {
+        width: auto;
+    }
+
+    /* Botão Responder volta ao tamanho do texto, alinhado à esquerda */
+    .btn-submit {
+        width: auto;
+    }
+
+    .questao-card {
+        padding: 20px;
+    }
+
+    .dashboard-header {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    /* "Página X de Y" volta para o meio dos botões */
+    .paginacao span {
+        order: 0;
+        flex-basis: auto;
+        padding: 0 8px;
+    }
+}
+
+/* ==========================================================================
+   Tablet (≥ 768px)
+   ========================================================================== */
+@media (min-width: 768px) {
+    .conteudo {
+        padding-top: 24px;
+    }
+
+    /* Há espaço de sobra: filtros sempre visíveis, sem o botão de abrir/fechar */
+    .btn-filtros {
+        display: none;
+    }
+
+    .filtro-form[data-recolhido] {
+        display: grid;
+    }
+
+    .alternativa {
+        padding: 12px 14px;
+    }
+}
+
+/* ==========================================================================
+   Computador (≥ 1024px)
+   ========================================================================== */
+@media (min-width: 1024px) {
+    /* Filtros em 2 linhas de 3 (Banca, Órgão, Cargo / Matéria, Tópico, Ano) */
+    .filtro-form {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Quem pede ao sistema menos animação não vê transições */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+    }
+}
