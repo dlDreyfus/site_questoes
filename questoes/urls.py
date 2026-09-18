@@ -11,5 +11,7 @@ app_name = 'questoes'
 urlpatterns = [
     # '' = raiz do app; chama a view lista_questoes e dá o nome 'lista_questoes' à rota.
     path('', views.lista_questoes, name='lista_questoes'),
+    # Recebe o POST com a alternativa marcada na questão <questao_id>.
+    path('questao/<int:questao_id>/responder/', views.responder_questao, name='responder_questao'),
 # Fecha a lista de rotas.
 ]
