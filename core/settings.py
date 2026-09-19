@@ -34,9 +34,16 @@ if _arquivo_env.exists():
 SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Padrão True para não quebrar o runserver local; em produção defina DJANGO_DEBUG=False no .env
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+# Domínios que podem servir o site (ex: "meusite.pythonanywhere.com"), separados por vírgula.
+# Com DEBUG=True, localhost/127.0.0.1 já funcionam mesmo com a lista vazia.
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
+    if host.strip()
+]
 
 
 # Application definition

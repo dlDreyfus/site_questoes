@@ -49,9 +49,11 @@ superusuário, que também dá acesso ao `/admin/`.
 
 ### Variáveis de ambiente
 
-| Variável            | Obrigatória | Descrição                         |
-|---------------------|-------------|-----------------------------------|
-| `DJANGO_SECRET_KEY` | Sim         | Chave secreta do Django           |
+| Variável               | Obrigatória | Descrição                                                        |
+|------------------------|-------------|-------------------------------------------------------------------|
+| `DJANGO_SECRET_KEY`    | Sim         | Chave secreta do Django                                          |
+| `DJANGO_DEBUG`         | Não         | `True` (padrão) em desenvolvimento; `False` em produção          |
+| `DJANGO_ALLOWED_HOSTS` | Em produção | Domínios do site separados por vírgula (ex: `meusite.pythonanywhere.com`) |
 
 As variáveis podem ser definidas no ambiente ou no arquivo `.env` na raiz do projeto, que fica
 fora do git. As do ambiente têm prioridade.
