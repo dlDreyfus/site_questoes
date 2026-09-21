@@ -107,6 +107,8 @@ select:focus-visible {
 .btn-limpar,
 .btn-desempenho,
 .btn-voltar,
+.btn-perigo,
+.btn-perigo-confirmar,
 .pagina-login button {
     display: inline-flex;
     align-items: center;
@@ -219,6 +221,24 @@ select:focus-visible {
 .topo-menu .btn-limpar {
     padding: 8px 10px;
     font-size: 0.9rem;
+}
+
+/* ---------- Subcabeçalho (total de questões, abaixo do cabeçalho do usuário logado) ---------- */
+.subcabecalho {
+    background: var(--cor-hover);
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+.subcabecalho-conteudo {
+    max-width: var(--largura-maxima);
+    margin: 0 auto;
+    padding: 6px var(--espaco-lateral);
+    font-size: 0.9rem;
+    color: var(--cor-texto-suave);
+}
+
+.subcabecalho-conteudo strong {
+    color: var(--cor-primaria);
 }
 
 /* ---------- Alertas (mensagens do Django) ---------- */
@@ -345,12 +365,6 @@ select:focus-visible {
 /* Painel recolhido (o atributo é colocado pelo filtros.js; no tablet/computador é ignorado) */
 .filtro-form[data-recolhido] {
     display: none;
-}
-
-/* Contador de resultados */
-.total-questoes {
-    color: var(--cor-secundaria);
-    margin: 0 0 12px;
 }
 
 /* ---------- Questões ---------- */
@@ -894,6 +908,7 @@ body.pagina-login {
     margin-bottom: 20px;
 }
 
+.dashboard-header h1,
 .dashboard-header h2 {
     margin: 0;
 }
@@ -940,6 +955,204 @@ body.pagina-login {
 
 .dashboard-card-percentual .numero {
     color: var(--cor-primaria);
+}
+
+/* ---------- Simulados ---------- */
+/* Botões do topo do painel (Novo simulado / Voltar): lado a lado, dividindo a largura no celular */
+.dashboard-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.dashboard-acoes > a {
+    flex: 1 1 auto;
+}
+
+.secao-titulo {
+    margin: 28px 0 12px;
+    font-size: 1.15rem;
+}
+
+.lista-simulados {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* Card do simulado: o link (com o resumo) e, abaixo, os botões Editar e Apagar. A barra verde marca os concluídos */
+.simulado-card {
+    background: var(--cor-superficie);
+    border-left: 4px solid var(--cor-primaria);
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+    overflow-wrap: anywhere;
+}
+
+.simulado-card.concluido {
+    border-left-color: var(--cor-sucesso);
+}
+
+/* O resumo inteiro é um link (área de toque grande) */
+.simulado-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 16px 8px;
+    border-radius: 0 var(--raio) 0 0;
+    color: inherit;
+    text-decoration: none;
+}
+
+.simulado-item:hover {
+    background-color: var(--cor-hover);
+}
+
+.simulado-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 4px 16px 14px;
+}
+
+/* Botão de ação destrutiva (Apagar): contorno vermelho; ao passar o mouse, preenchido */
+.btn-perigo {
+    background-color: var(--cor-superficie);
+    color: var(--cor-perigo);
+    border-color: var(--cor-perigo);
+}
+
+.btn-perigo:hover {
+    background-color: var(--cor-perigo);
+    color: #fff;
+}
+
+/* Confirmação final ("Sim, apagar"): vermelho cheio, para não ser confundido com o Cancelar */
+.btn-perigo-confirmar {
+    background-color: var(--cor-perigo);
+    color: #fff;
+}
+
+.btn-perigo-confirmar:hover {
+    background-color: #bb2d3b;
+}
+
+.confirmacao {
+    text-align: left;
+}
+
+.confirmacao h3 {
+    text-transform: none;
+    font-size: 1.1rem;
+    color: var(--cor-texto);
+    overflow-wrap: anywhere;
+}
+
+.acoes-confirmacao {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.simulado-nome {
+    font-weight: bold;
+    color: var(--cor-primaria);
+}
+
+.simulado-info,
+.simulado-progresso,
+.simulado-descricao {
+    font-size: 0.9rem;
+    color: var(--cor-texto-suave);
+}
+
+.simulado-descricao {
+    margin: 0 0 16px;
+    overflow-wrap: anywhere;
+}
+
+/* Texto de apoio da tela de novo simulado */
+.simulado-explicacao {
+    margin: 0 0 16px;
+    color: var(--cor-texto-suave);
+}
+
+/* Formulário que cria o simulado (nome + botão), abaixo dos filtros */
+.form-simulado {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    background: var(--cor-superficie);
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+}
+
+.form-simulado .btn-submit {
+    margin-top: 0;
+}
+
+.simulado-vazio {
+    margin: 0;
+    color: var(--cor-perigo);
+    font-weight: bold;
+}
+
+.filtro-grupo input[type="text"] {
+    width: 100%;
+    min-height: var(--alvo-toque);
+    padding: 8px 10px;
+    border: 1px solid var(--cor-borda-forte);
+    border-radius: var(--raio-pequeno);
+    background-color: var(--cor-superficie);
+    color: var(--cor-texto);
+}
+
+/* "3 de 10" no card de respondidas: o "de 10" menor, para o número principal se destacar */
+.numero-de {
+    font-size: 0.5em;
+    font-weight: normal;
+    color: var(--cor-secundaria);
+}
+
+/* Questão já respondida no simulado: só leitura, com a correta em verde e a marcada errada em vermelho */
+.resultado-simulado {
+    margin: 0 0 8px;
+    font-weight: bold;
+}
+
+.resultado-simulado.acertou {
+    color: var(--cor-sucesso);
+}
+
+.resultado-simulado.errou {
+    color: var(--cor-perigo);
+}
+
+.alternativa-respondida {
+    flex-wrap: wrap;
+    cursor: default;
+}
+
+.alternativa-respondida:hover {
+    background-color: transparent;
+}
+
+.alternativa-respondida.correta {
+    border-color: #badbcc;
+    background-color: #d1e7dd;
+}
+
+.alternativa-respondida.errada {
+    border-color: #f5c2c7;
+    background-color: #f8d7da;
+}
+
+.alternativa-marca {
+    margin-left: auto;
+    font-size: 0.85em;
 }
 
 /* ==========================================================================
@@ -991,6 +1204,10 @@ body.pagina-login {
         flex-direction: row;
         align-items: center;
         justify-content: space-between;
+    }
+
+    .dashboard-acoes > a {
+        flex: 0 0 auto;
     }
 
     /* "Página X de Y" volta para o meio dos botões */

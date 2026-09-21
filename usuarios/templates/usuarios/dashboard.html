@@ -6,7 +6,10 @@
 {% block content %}
 <div class="dashboard-header">
     <h2>Dashboard de Desempenho</h2>
-    <a href="{% url 'questoes:lista_questoes' %}" class="btn-voltar">Voltar para Questões</a>
+    <div class="dashboard-acoes">
+        <a href="{% url 'questoes:novo_simulado' %}" class="btn-desempenho">Novo simulado</a>
+        <a href="{% url 'questoes:lista_questoes' %}" class="btn-voltar">Voltar para Questões</a>
+    </div>
 </div>
 
 {# Filtros para estratificar as estatísticas (banca, cargo, matéria e tópico): mesmo formulário da lista #}
@@ -41,6 +44,35 @@
 <div class="dashboard-card">
     <h3>Nenhum dado encontrado</h3>
     <p>Você ainda não respondeu nenhuma questão. Vá para a tela principal e comece seus estudos!</p>
+</div>
+{% endif %}
+
+{# Simulados: conjuntos fixos de questões criados pelo usuário (com os filtros, "que errei" ou "ainda não resolvi") #}
+<h3 class="secao-titulo">Meus simulados</h3>
+{% if simulados %}
+<ul class="lista-simulados">
+    {% for simulado in simulados %}
+    {# O card é o <li>; o link do simulado e os botões Editar/Apagar ficam lado a lado (link dentro de link não vale) #}
+    <li class="simulado-card{% if simulado.qtd_questoes and simulado.qtd_respondidas >= simulado.qtd_questoes %} concluido{% endif %}">
+        <a href="{% url 'questoes:simulado_detalhe' simulado.id %}" class="simulado-item">
+            <span class="simulado-nome">{{ simulado.nome }}</span>
+            <span class="simulado-info">{{ simulado.descricao }}</span>
+            <span class="simulado-progresso">
+                {{ simulado.qtd_respondidas }} de {{ simulado.qtd_questoes }} respondidas · {{ simulado.qtd_acertos }} acerto{{ simulado.qtd_acertos|pluralize }}
+                {% if simulado.qtd_questoes and simulado.qtd_respondidas >= simulado.qtd_questoes %}· Concluído{% endif %}
+                · Criado em {{ simulado.criado_em|date:"d/m/Y" }}
+            </span>
+        </a>
+        <div class="simulado-acoes">
+            <a href="{% url 'questoes:editar_simulado' simulado.id %}" class="btn-limpar" aria-label="Editar o simulado {{ simulado.nome }}">Editar</a>
+            <a href="{% url 'questoes:apagar_simulado' simulado.id %}" class="btn-perigo" aria-label="Apagar o simulado {{ simulado.nome }}">Apagar</a>
+        </div>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<div class="dashboard-card">
+    <p>Você ainda não criou nenhum simulado. <a href="{% url 'questoes:novo_simulado' %}">Criar o primeiro simulado</a></p>
 </div>
 {% endif %}
 {% endblock %}

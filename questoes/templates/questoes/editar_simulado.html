@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Simulado{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h2>Editar simulado</h2>
+    <a href="{% url 'questoes:simulado_detalhe' simulado.id %}" class="btn-voltar">Voltar para o simulado</a>
+</div>
+
+<p class="simulado-explicacao">
+    Você pode mudar o nome de "{{ nome_atual }}". As questões e as respostas já dadas continuam as mesmas;
+    para outro conjunto de questões, crie um novo simulado.
+</p>
+
+<form method="POST" class="form-simulado">
+    {% csrf_token %}
+    <div class="filtro-grupo">
+        <label for="{{ form.nome.id_for_label }}">{{ form.nome.label }}</label>
+        {{ form.nome }}
+        {{ form.nome.errors }}
+    </div>
+    <button type="submit" class="btn-submit">Salvar nome</button>
+</form>
+{% endblock %}

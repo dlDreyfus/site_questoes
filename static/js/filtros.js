@@ -15,8 +15,9 @@ if (formFiltros && botaoFiltros) {
         botaoFiltros.setAttribute('aria-expanded', String(aberto));
     };
 
-    // Começa aberto só se houver algum filtro em uso (para o usuário ver o que está filtrando)
-    definirAberto(Number(formFiltros.dataset.filtrosAtivos) > 0);
+    // Começa aberto só se houver algum filtro em uso (para o usuário ver o que está filtrando),
+    // ou sempre, nas páginas em que os filtros são o assunto principal (data-filtros-abertos)
+    definirAberto(Number(formFiltros.dataset.filtrosAtivos) > 0 || 'filtrosAbertos' in formFiltros.dataset);
     botaoFiltros.hidden = false;
 
     botaoFiltros.addEventListener('click', () => {

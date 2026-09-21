@@ -4,112 +4,25 @@
 {% block title %}Questões{% endblock %}
 
 {% block content %}
-<h1>Questões Cadastradas</h1>
+{# O botão leva os filtros escolhidos para a tela de novo simulado (ver url_novo_simulado em views.py) #}
+<div class="dashboard-header">
+    <h1>Questões Cadastradas</h1>
+    <a href="{{ url_novo_simulado }}" class="btn-desempenho">Novo simulado</a>
+</div>
 
 {# Filtros (banca, órgão, cargo, matéria, tópico e ano): ver questoes/_filtros.html #}
 {% include 'questoes/_filtros.html' %}
 
-{% with total=pagina.paginator.count %}
-<p class="total-questoes">{{ total }} {% if total == 1 %}questão encontrada{% else %}questões encontradas{% endif %}</p>
-{% endwith %}
-
+{# O total de questões que atendem aos filtros fica no subcabeçalho de base.html #}
 <!-- O Django usa chaves e porcentagens para rodar lógica no HTML -->
+{# Card de cada questão: questoes/_questao_card.html (o mesmo do simulado) #}
 {% for questao in questoes %}
-<div class="questao-card" id="questao-{{ questao.id }}">
-    <p class="meta-info">
-        <strong>Banca:</strong> {{ questao.banca }} | <strong>Órgão:</strong> {{ questao.orgao }} |
-        <strong>Cargo:</strong> {{ questao.cargo }} | <strong>Ano:</strong> {{ questao.ano }}
-    </p>
-    {# linebreaksbr: mantém as quebras de linha do texto (itens I, II, III, texto-base, citações de lei) #}
-    <p class="enunciado">{{ questao.enunciado|linebreaksbr }}</p>
-
-    <!-- Resultado da última resposta desta questão (a mensagem carrega o id da questão em extra_tags) -->
-    {% for message in messages %}
-    {% if message.extra_tags == questao.id|stringformat:"s" %}
-    <div class="alert {{ message.level_tag }}">{{ message }}</div>
-    {% endif %}
-    {% endfor %}
-
-    {# Resolução oficial: só aparece logo depois de o usuário responder esta questão (antes, entregaria o gabarito) #}
-    {% if questao.id == questao_respondida and resolucao_exibida %}
-    <details class="resolucao" id="resolucao-{{ resolucao_exibida.id }}" open>
-        <summary>Resolução</summary>
-        <p>{{ resolucao_exibida.texto|linebreaksbr }}</p>
-        {# Curtir e descurtir se excluem: o JavaScript atualiza os dois botões do grupo .votos #}
-        <div class="votos">
-            {% url 'questoes:curtir_resolucao' resolucao_exibida.id as url_curtir %}
-            {% include 'questoes/_botao_curtir.html' with url=url_curtir ativo=resolucao_exibida.curtido total=resolucao_exibida.total_curtidas alvo='esta resolução' %}
-            {% url 'questoes:descurtir_resolucao' resolucao_exibida.id as url_descurtir %}
-            {% include 'questoes/_botao_curtir.html' with url=url_descurtir ativo=resolucao_exibida.descurtido total=resolucao_exibida.total_descurtidas alvo='esta resolução' tipo='descurtir' %}
-        </div>
-    </details>
-    {% endif %}
-
-    <form method="POST" action="{% url 'questoes:responder_questao' questao.id %}">
-        {% csrf_token %}
-        <!-- Endereço atual (com filtros e página) para voltar ao mesmo lugar depois de responder -->
-        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-
-        <!-- Mesmo 'name' em todos os radios: só uma alternativa pode ser marcada por questão -->
-        {% for alternativa in questao.alternativas.all %}
-        <label class="alternativa">
-            <input type="radio" name="alternativa" value="{{ alternativa.id }}" required>
-            {# span: com <br> dentro, o texto precisa ser um único item do flex do .alternativa #}
-            <span>{{ alternativa.texto|linebreaksbr }}</span>
-        </label>
-        {% endfor %}
-
-        <button type="submit" class="btn-submit">Responder</button>
-    </form>
-
-    {# Fórum da questão: recolhido por padrão; abre sozinho logo após o usuário comentar nela #}
-    <details class="forum" id="comentarios-{{ questao.id }}" {% if comentarios_abertos == questao.id %}open{% endif %}>
-        <summary>Comentários ({{ questao.total_comentarios }})</summary>
-
-        {% for comentario in questao.comentarios_principais %}
-        <div class="conversa">
-            {% include 'questoes/_comentario.html' %}
-            {% if comentario.respostas.all %}
-            <div class="respostas">
-                {% for resposta in comentario.respostas.all %}
-                {% include 'questoes/_comentario.html' with comentario=resposta %}
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-        {% empty %}
-        <p class="forum-vazio">Nenhum comentário ainda. Seja o primeiro a comentar!</p>
-        {% endfor %}
-
-        <form method="POST" action="{% url 'questoes:comentar_questao' questao.id %}" class="form-comentario">
-            {% csrf_token %}
-            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <label for="novo-comentario-{{ questao.id }}">Novo comentário</label>
-            <textarea id="novo-comentario-{{ questao.id }}" name="texto" rows="3" maxlength="{{ comentario_tamanho_maximo }}" required placeholder="Escreva seu comentário (até {{ comentario_tamanho_maximo }} caracteres)"></textarea>
-            <button type="submit" class="btn-submit">Publicar comentário</button>
-        </form>
-    </details>
-</div>
+{% include 'questoes/_questao_card.html' %}
 {% empty %}
 <p>Nenhuma questão encontrada.</p>
 {% endfor %}
 
-{# Paginação: a tag querystring mantém os filtros da URL e troca só o número da página #}
-{% if pagina.has_other_pages %}
-<nav class="paginacao" aria-label="Paginação">
-    {% if pagina.has_previous %}
-    <a href="{% querystring page=1 %}">&laquo; Primeira</a>
-    <a href="{% querystring page=pagina.previous_page_number %}">Anterior</a>
-    {% endif %}
-
-    <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
-
-    {% if pagina.has_next %}
-    <a href="{% querystring page=pagina.next_page_number %}">Próxima</a>
-    <a href="{% querystring page=pagina.paginator.num_pages %}">Última &raquo;</a>
-    {% endif %}
-</nav>
-{% endif %}
+{% include 'questoes/_paginacao.html' %}
 {% endblock %}
 
 {% block extra_js %}

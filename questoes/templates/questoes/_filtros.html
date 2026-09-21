@@ -1,6 +1,8 @@
 {# Formulário de filtros compartilhado pela lista de questões e pelo painel "Meu Desempenho". #}
 {# Recebe o contexto de FiltrosQuestao.contexto() (questoes/filtros.py); filtros_campos diz quais #}
-{# dropdowns exibir. A URL do formulário e do "Limpar" é a da própria página (request.path). #}
+{# dropdowns exibir. As opções chegam em cascata: cada dropdown só traz o que ainda combina com o que #}
+{# foi escolhido nos outros (o formulário é reenviado a cada mudança, então a view já monta as opções #}
+{# certas). A URL do formulário e do "Limpar" é a da própria página (request.path). #}
 {# Botão que abre/fecha os filtros no celular. Começa com 'hidden': só o static/js/filtros.js o exibe, #}
 {# então sem JavaScript os filtros ficam sempre visíveis. No tablet/computador o CSS o esconde. #}
 <button type="button" class="btn-filtros" aria-controls="filtros" aria-expanded="true" hidden>
@@ -10,9 +12,11 @@
 
 <!-- Barra de Filtros: static/js/filtros.js envia o formulário assim que um dropdown muda -->
 {# data-filtros-ativos: o JS usa para decidir se o painel começa aberto (há filtro em uso) ou fechado #}
+{# data-filtros-abertos: páginas onde os filtros são o assunto principal (novo simulado) começam sempre abertas #}
 {# data-campos: quantos dropdowns há; o CSS ajusta as colunas no computador (ex: 4 lado a lado) #}
 <form method="GET" action="{{ request.path }}" class="filtro-form" id="filtros"
-      data-filtros-ativos="{{ filtros_ativos }}" data-campos="{{ filtros_campos|length }}">
+      data-filtros-ativos="{{ filtros_ativos }}" data-campos="{{ filtros_campos|length }}"
+      {% if filtros_abertos %}data-filtros-abertos{% endif %}>
     {% if 'banca' in filtros_campos %}
     <div class="filtro-grupo">
         <label for="banca">Banca</label>
@@ -67,7 +71,7 @@
         <label for="topico">Tópico</label>
         <select name="topico" id="topico">
             <option value="">Todos os Tópicos</option>
-            {# Tópicos agrupados por matéria (optgroup); com uma matéria escolhida, a view envia só os dela #}
+            {# Tópicos agrupados por matéria (optgroup); com uma matéria escolhida, só os dela #}
             {% regroup topicos by materia as grupos %}
             {% for grupo in grupos %}
             <optgroup label="{{ grupo.grouper }}">
@@ -87,6 +91,19 @@
             <option value="">Todos os Anos</option>
             {% for a in anos %}
             <option value="{{ a }}" {% if ano_selecionado == a %}selected{% endif %}>{{ a }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    {# Situação (só na criação de simulados): depende do histórico de respostas de quem está logado #}
+    {% if 'situacao' in filtros_campos %}
+    <div class="filtro-grupo">
+        <label for="situacao">Situação</label>
+        <select name="situacao" id="situacao">
+            <option value="">Todas as questões</option>
+            {% for valor, rotulo in situacoes %}
+            <option value="{{ valor }}" {% if situacao_selecionada == valor %}selected{% endif %}>{{ rotulo }}</option>
             {% endfor %}
         </select>
     </div>

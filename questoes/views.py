@@ -1,16 +1,20 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.paginator import Paginator
-from django.db.models import Count, Exists, OuterRef, Prefetch
+from django.db import IntegrityError, transaction
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Subquery
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
-from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
-from .forms import ComentarioForm, ImportarCSVForm
+from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme, urlencode
+from django.views.decorators.http import require_http_methods, require_POST
+from .forms import ComentarioForm, ImportarCSVForm, SimuladoForm
 from .importacao import COLUNAS, gerar_modelo_csv, importar_csv
-from .filtros import FiltrosQuestao, parse_int
-from .models import COMENTARIO_TAMANHO_MAXIMO, Comentario, HistoricoResolucao, Questao, ResolucaoOficial
+from .filtros import CAMPOS_SIMULADO, FiltrosQuestao, parse_int
+from .models import (
+    COMENTARIO_TAMANHO_MAXIMO, Comentario, HistoricoResolucao, Questao, ResolucaoOficial, Simulado,
+)
 
 # Quantidade de questões exibidas por página
 QUESTOES_POR_PAGINA = 10
@@ -29,18 +33,9 @@ def _comentarios_com_curtidas(usuario):
     )
 
 
-# Só usuários logados acessam as questões; os demais são levados ao LOGIN_URL (usuarios:login)
-@login_required
-def lista_questoes(request):
-    # 1. Pega a QuerySet base (ainda não bateu no banco, é preguiçosa/lazy)
-    # A ordem (ano mais recente primeiro) vem do Meta.ordering de Questao
-    questoes = Questao.objects.select_related('banca', 'orgao', 'cargo').prefetch_related('alternativas')
-
-    # 2 e 3. Lê os filtros da URL (ex: ?banca=1&orgao=2&cargo=3&materia=4&topico=5&ano=2024) e os aplica
-    # (a mesma lógica é usada pelo painel "Meu Desempenho"; ver questoes/filtros.py)
-    filtros = FiltrosQuestao.da_requisicao(request.GET)
-    questoes = filtros.aplicar(questoes)
-
+def _contexto_das_questoes(request, questoes):
+    """Prepara um queryset de Questao para exibição (páginas da lista de questões e do simulado):
+    fórum, paginação e resolução oficial. Devolve o contexto que questoes/_questao_card.html espera."""
     # Fórum: total de comentários de cada questão e as conversas (comentários principais com suas
     # respostas), carregados em poucas consultas para a página inteira.
     # distinct=True: os filtros por tópico/matéria fazem JOIN e, sem ele, a contagem sairia duplicada.
@@ -82,11 +77,11 @@ def lista_questoes(request):
             .first()
         )
 
-    context = {
+    return {
         'pagina': pagina,
         'questoes': pagina.object_list,
-        # 5. Opções dos dropdowns, valores selecionados e quantos filtros estão ativos
-        **filtros.contexto(),
+        # Subcabeçalho (base.html): total de questões da lista, contado pelo paginador
+        'total_questoes': pagina.paginator.count,
         # Questão cujo fórum acabou de receber um comentário: a seção dela já abre expandida
         'comentarios_abertos': request.session.pop('comentarios_abertos', None),
         # Questão que o usuário acabou de responder e a resolução dela (se houver)
@@ -95,7 +90,137 @@ def lista_questoes(request):
         'comentario_tamanho_maximo': COMENTARIO_TAMANHO_MAXIMO,
     }
 
+
+# Só usuários logados acessam as questões; os demais são levados ao LOGIN_URL (usuarios:login)
+@login_required
+def lista_questoes(request):
+    # 1. Pega a QuerySet base (ainda não bateu no banco, é preguiçosa/lazy)
+    # A ordem (ano mais recente primeiro) vem do Meta.ordering de Questao
+    questoes = Questao.objects.select_related('banca', 'orgao', 'cargo').prefetch_related('alternativas')
+
+    # 2 e 3. Lê os filtros da URL (ex: ?banca=1&orgao=2&cargo=3&materia=4&topico=5&ano=2024) e os aplica
+    # (a mesma lógica é usada pelo painel "Meu Desempenho"; ver questoes/filtros.py)
+    filtros = FiltrosQuestao.da_requisicao(request.GET)
+    questoes = filtros.aplicar(questoes)
+
+    # Botão "Novo simulado": abre a tela de criação já com os filtros que o usuário escolheu na lista
+    # (só os válidos, sem a página). Sem filtros, o endereço fica limpo, sem "?" sobrando.
+    parametros = urlencode(filtros.parametros())
+    url_novo_simulado = reverse('questoes:novo_simulado') + (f'?{parametros}' if parametros else '')
+
+    context = {
+        # 4 e 5. Fórum, paginação e resolução exibida (compartilhados com o simulado)
+        **_contexto_das_questoes(request, questoes),
+        # Opções dos dropdowns, valores selecionados e quantos filtros estão ativos
+        **filtros.contexto(),
+        'url_novo_simulado': url_novo_simulado,
+    }
+
     return render(request, 'questoes/lista_questoes.html', context)
+
+
+# --- Simulados: conjunto fixo de questões escolhido a partir dos filtros ---------------------------
+
+# Tamanho máximo do nome do simulado (o mesmo do campo no banco)
+NOME_SIMULADO_MAXIMO = Simulado._meta.get_field('nome').max_length
+
+
+@login_required
+def novo_simulado(request):
+    """Tela de criação: os filtros (em cascata, mais a situação) e o botão que cria o simulado."""
+    filtros = FiltrosQuestao.da_requisicao(request.GET, campos=CAMPOS_SIMULADO, usuario=request.user)
+    context = {
+        # Subcabeçalho (base.html): quantas questões o simulado teria com os filtros escolhidos
+        'total_questoes': filtros.aplicar(Questao.objects.all()).count(),
+        # Nesta tela os filtros são o assunto principal: o painel não começa recolhido no celular
+        'filtros_abertos': True,
+        # Filtros escolhidos, reenviados junto com o formulário que cria o simulado
+        'filtros_parametros': filtros.parametros(CAMPOS_SIMULADO),
+        **filtros.contexto(campos=CAMPOS_SIMULADO),
+    }
+    return render(request, 'questoes/novo_simulado.html', context)
+
+
+@login_required
+@require_POST
+def criar_simulado(request):
+    # Relê os filtros no servidor (nada vem pronto do navegador) e congela as questões que os atendem
+    filtros = FiltrosQuestao.da_requisicao(request.POST, campos=CAMPOS_SIMULADO, usuario=request.user)
+    ids = list(filtros.aplicar(Questao.objects.order_by()).values_list('pk', flat=True))
+
+    if not ids:
+        messages.warning(request, 'Nenhuma questão atende aos filtros escolhidos. Ajuste os filtros e tente de novo.')
+        parametros = urlencode(filtros.parametros(CAMPOS_SIMULADO))
+        return redirect(f"{reverse('questoes:novo_simulado')}?{parametros}")
+
+    nome = request.POST.get('nome', '').strip()[:NOME_SIMULADO_MAXIMO]
+    nome = nome or f'Simulado de {timezone.localtime():%d/%m/%Y %H:%M}'
+    with transaction.atomic():
+        simulado = Simulado.objects.create(usuario=request.user, nome=nome, descricao=filtros.descricao())
+        simulado.questoes.set(ids)
+    return redirect('questoes:simulado_detalhe', simulado_id=simulado.pk)
+
+
+@login_required
+def simulado_detalhe(request, simulado_id):
+    # Só o dono acessa o simulado (de outro usuário, a resposta é 404, como se ele não existisse)
+    simulado = get_object_or_404(Simulado, pk=simulado_id, usuario=request.user)
+
+    # A resposta do usuário a cada questão DESTE simulado: define se ela aparece para responder ou já respondida
+    respostas = simulado.resolucoes.filter(questao=OuterRef('pk'))
+    questoes = simulado.questoes.select_related('banca', 'orgao', 'cargo').prefetch_related('alternativas').annotate(
+        resultado=Subquery(respostas.values('acertou')[:1]),
+        alternativa_marcada=Subquery(respostas.values('alternativa_escolhida_id')[:1]),
+    )
+    contexto = _contexto_das_questoes(request, questoes)
+
+    resumo = simulado.resolucoes.aggregate(respondidas=Count('id'), acertos=Count('id', filter=Q(acertou=True)))
+    total = contexto['pagina'].paginator.count
+    context = {
+        **contexto,
+        'simulado': simulado,
+        'respondidas': resumo['respondidas'],
+        'acertos': resumo['acertos'],
+        'erros': resumo['respondidas'] - resumo['acertos'],
+        # Percentual sobre o que já foi respondido (evita divisão por zero no simulado recém-criado)
+        'percentual': round(resumo['acertos'] / resumo['respondidas'] * 100, 1) if resumo['respondidas'] else 0,
+        'concluido': total > 0 and resumo['respondidas'] >= total,
+        # Subcabeçalho (base.html): "N questões cadastradas neste simulado"
+        'subcabecalho_sufixo': 'neste simulado',
+    }
+    return render(request, 'questoes/simulado_detalhe.html', context)
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def editar_simulado(request, simulado_id):
+    """Renomeia o simulado. As questões e as respostas dadas nele não mudam."""
+    simulado = get_object_or_404(Simulado, pk=simulado_id, usuario=request.user)
+    # O formulário altera o objeto ao validar: guarda o nome atual para o título da página não mostrar um nome inválido
+    nome_atual = simulado.nome
+    form = SimuladoForm(request.POST or None, instance=simulado)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Nome do simulado atualizado.')
+        return redirect('questoes:simulado_detalhe', simulado_id=simulado.pk)
+    return render(request, 'questoes/editar_simulado.html', {'form': form, 'simulado': simulado, 'nome_atual': nome_atual})
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def apagar_simulado(request, simulado_id):
+    """GET pede a confirmação (funciona sem JavaScript); o POST apaga de fato."""
+    simulado = get_object_or_404(Simulado, pk=simulado_id, usuario=request.user)
+    if request.method == 'POST':
+        nome = simulado.nome
+        # As respostas dadas no simulado continuam no histórico do usuário (só perdem o vínculo com ele)
+        simulado.delete()
+        messages.success(request, f'Simulado "{nome}" apagado.')
+        return redirect('usuarios:dashboard')
+    return render(request, 'questoes/apagar_simulado.html', {
+        'simulado': simulado,
+        'respondidas': simulado.resolucoes.count(),
+    })
 
 
 # Publica um comentário (ou uma resposta) no fórum da questão
@@ -213,24 +338,40 @@ def responder_questao(request, questao_id):
     # Filtra pela questão para impedir que uma alternativa de outra questão seja enviada
     alternativa = questao.alternativas.filter(pk=alternativa_id).first() if alternativa_id else None
 
+    # Resposta dada dentro de um simulado: só vale se o simulado for do usuário e tiver esta questão
+    # (um id de outro usuário, ou de outra questão, é ignorado e a resposta segue como avulsa)
+    simulado = None
+    simulado_id = parse_int(request.POST.get('simulado'))
+    if simulado_id is not None:
+        simulado = request.user.simulados.filter(pk=simulado_id, questoes=questao).first()
+
     if alternativa is None:
         messages.warning(request, 'Você precisa selecionar uma alternativa!', extra_tags=tag)
+    elif simulado is not None and simulado.resolucoes.filter(questao=questao).exists():
+        messages.warning(request, 'Você já respondeu esta questão neste simulado.', extra_tags=tag)
     else:
         # Salva a tentativa no histórico do usuário
-        HistoricoResolucao.objects.create(
-            usuario=request.user,
-            questao=questao,
-            alternativa_escolhida=alternativa,
-            acertou=alternativa.is_correta,
-        )
-        # Ao voltar para a lista, esta questão exibe a resolução oficial (se houver)
-        request.session['questao_respondida'] = questao.id
-        if alternativa.is_correta:
-            messages.success(request, 'Resposta Correta! Excelente.', extra_tags=tag)
+        try:
+            # atomic: se a constraint do banco recusar (duplo clique, duas abas), a transação não fica quebrada
+            with transaction.atomic():
+                HistoricoResolucao.objects.create(
+                    usuario=request.user,
+                    questao=questao,
+                    alternativa_escolhida=alternativa,
+                    acertou=alternativa.is_correta,
+                    simulado=simulado,
+                )
+        except IntegrityError:
+            messages.warning(request, 'Você já respondeu esta questão neste simulado.', extra_tags=tag)
         else:
-            correta = questao.alternativas.filter(is_correta=True).first()
-            texto = f'Resposta Incorreta. A correta é: {correta.texto}' if correta else 'Resposta Incorreta.'
-            messages.error(request, texto, extra_tags=tag)
+            # Ao voltar para a lista, esta questão exibe a resolução oficial (se houver)
+            request.session['questao_respondida'] = questao.id
+            if alternativa.is_correta:
+                messages.success(request, 'Resposta Correta! Excelente.', extra_tags=tag)
+            else:
+                correta = questao.alternativas.filter(is_correta=True).first()
+                texto = f'Resposta Incorreta. A correta é: {correta.texto}' if correta else 'Resposta Incorreta.'
+                messages.error(request, texto, extra_tags=tag)
 
     # Volta para a mesma página (mantendo filtros e página) e rola até a questão respondida
     destino = request.POST.get('next')

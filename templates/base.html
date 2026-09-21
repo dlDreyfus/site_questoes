@@ -39,6 +39,15 @@
             </nav>
         </div>
     </header>
+
+    {# Subcabeçalho: quantas questões estão cadastradas. Na lista e no painel, só as que atendem aos #}
+    {# filtros escolhidos (as views enviam total_questoes e filtros_ativos); nas demais páginas, o total. #}
+    {# O with chama total_questoes uma vez só (nas páginas sem filtro ele é uma consulta preguiçosa). #}
+    {% with total=total_questoes %}
+    <div class="subcabecalho">
+        <p class="subcabecalho-conteudo"><strong>{{ total }}</strong> {% if total == 1 %}questão cadastrada{% else %}questões cadastradas{% endif %}{% if subcabecalho_sufixo %} {{ subcabecalho_sufixo }}{% elif filtros_ativos %} com os filtros escolhidos{% endif %}</p>
+    </div>
+    {% endwith %}
     {% endif %}
 
     <!-- Área principal: largura máxima confortável para leitura, centralizada em telas grandes -->

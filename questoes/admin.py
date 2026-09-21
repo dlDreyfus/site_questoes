@@ -3,10 +3,12 @@ from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Count
 from django.forms.models import BaseInlineFormSet
 # Importa todos os models deste app para registrá-los no painel.
 from .models import (
     Banca, Orgao, Cargo, Materia, Topico, Questao, Alternativa, ResolucaoOficial, HistoricoResolucao, Comentario,
+    Simulado,
 )
 
 # Cadastros simples
@@ -125,6 +127,29 @@ class ComentarioAdmin(admin.ModelAdmin):
     @admin.display(description='texto')
     def texto_resumido(self, comentario):
         return comentario.texto if len(comentario.texto) <= 80 else f'{comentario.texto[:80]}…'
+
+
+# Simulados criados pelos usuários. As questões e o dono não se editam aqui: um simulado é um conjunto
+# fixo gerado pelo site. Apagar um simulado mantém as respostas no histórico do usuário.
+@admin.register(Simulado)
+class SimuladoAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'usuario', 'criado_em', 'total_questoes')
+    list_filter = ('criado_em',)
+    search_fields = ('nome', 'usuario__username')
+    list_select_related = ('usuario',)
+    # Sem as questões: listar milhares delas numa linha só deixaria a tela pesada
+    fields = ('nome', 'usuario', 'descricao', 'criado_em')
+    readonly_fields = ('usuario', 'descricao', 'criado_em')
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(qtd_questoes=Count('questoes'))
+
+    @admin.display(description='questões', ordering='qtd_questoes')
+    def total_questoes(self, simulado):
+        return simulado.qtd_questoes
+
+    def has_add_permission(self, request):
+        return False
 
 
 # Histórico de respostas dos usuários: somente leitura (é gerado pelo site, não pelo admin)
