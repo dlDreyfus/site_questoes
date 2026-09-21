@@ -40,6 +40,52 @@
     </form>
 </div>
 
+{# Questões cadastradas com os votos da resolução oficial, das mais descurtidas para as menos #}
+<section class="painel questoes-votos">
+    <h3>Questões cadastradas</h3>
+    <p class="painel-texto">
+        Curtidas e descurtidas da resolução oficial de cada questão. Ordem: mais descurtidas, depois mais
+        curtidas e, por fim, o código em ordem alfabética.
+    </p>
+    {# A tabela rola na horizontal no celular, sem estourar a largura da página #}
+    <div class="tabela-rolavel">
+        <table class="tabela">
+            <thead>
+                <tr>
+                    <th>Código da questão</th>
+                    <th>Curtidas</th>
+                    <th>Descurtidas</th>
+                    {% if pode_gerenciar %}<th>Ações</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for questao in pagina %}
+                <tr>
+                    <td>{% if questao.codigo %}{{ questao.codigo }}{% else %}<em>sem código (id {{ questao.pk }})</em>{% endif %}</td>
+                    <td>{{ questao.total_curtidas }}</td>
+                    <td>{{ questao.total_descurtidas }}</td>
+                    {% if pode_gerenciar %}
+                    <td>
+                        <div class="acoes-linha">
+                            {# Edita qualquer atributo da questão (e alternativas) direto no admin do Django #}
+                            {% if pode_editar_no_admin %}
+                            <a href="{% url 'admin:questoes_questao_change' questao.pk %}" class="btn-limpar">Alterar</a>
+                            {% endif %}
+                            <a href="{% url 'questoes:apagar_questao' questao.pk %}" class="btn-perigo">Deletar</a>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr><td colspan="{% if pode_gerenciar %}4{% else %}3{% endif %}">Nenhuma questão cadastrada.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% include 'questoes/_paginacao.html' %}
+
 {# Ajuda com as colunas: recolhida por padrão (details/summary funciona sem JavaScript) #}
 <details class="painel colunas-ajuda">
     <summary>Colunas da planilha</summary>

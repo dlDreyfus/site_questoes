@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Apagar Questão{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h2>Apagar questão</h2>
+</div>
+
+{# Confirmação sem JavaScript: só o POST desta página apaga a questão #}
+<div class="dashboard-card confirmacao">
+    <h3>Apagar "{{ rotulo }}"?</h3>
+    <p>Esta ação não pode ser desfeita. Serão apagados junto com a questão:</p>
+    <ul>
+        <li>{{ total_alternativas }} alternativa{{ total_alternativas|pluralize }} e a resolução oficial (com as curtidas e descurtidas);</li>
+        <li>{{ total_respostas }} resposta{{ total_respostas|pluralize }} de usuários no histórico (o desempenho deles muda);</li>
+        <li>{{ total_comentarios }} comentário{{ total_comentarios|pluralize }} do fórum.</li>
+    </ul>
+    <p>Ela também sai dos simulados que a incluem.</p>
+    <form method="POST" class="acoes-confirmacao">
+        {% csrf_token %}
+        <button type="submit" class="btn-perigo-confirmar">Sim, apagar</button>
+        <a href="{% url 'questoes:importar_questoes' %}" class="btn-limpar">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

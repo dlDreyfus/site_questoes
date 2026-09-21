@@ -1,8 +1,9 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Subquery
+from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q, Subquery
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -20,6 +21,16 @@ from .models import (
 QUESTOES_POR_PAGINA = 10
 # Quantidade máxima de erros de importação listados na tela
 MAX_ERROS_EXIBIDOS = 100
+# Quantidade de questões por página na tabela de curtidas da tela de importação
+QUESTOES_POR_PAGINA_TABELA = 50
+# Grupo dos usuários "admin" (o mesmo que recebe a permissão de importar, ver migração 0004)
+GRUPO_ADMINISTRADOR = 'Administrador'
+
+
+def pode_gerenciar_questoes(usuario):
+    # Editar e apagar questões é restrito ao superusuário e ao grupo "Administrador".
+    # Não basta ter a permissão de importar: ela pode ser dada avulsa a qualquer usuário.
+    return usuario.is_superuser or usuario.groups.filter(name=GRUPO_ADMINISTRADOR).exists()
 
 
 def _comentarios_com_curtidas(usuario):
@@ -403,6 +414,16 @@ def importar_questoes(request):
     else:
         form = ImportarCSVForm()
 
+    # Tabela de questões com os votos da resolução oficial. Ordem: mais descurtidas, depois mais
+    # curtidas, depois o código em ordem alfabética (questões sem código por último; o id desempata).
+    # distinct=True: com dois Count na mesma consulta, os JOINs multiplicariam as contagens.
+    # Questão sem resolução oficial não tem votos: os dois totais saem 0 (LEFT JOIN).
+    questoes = Questao.objects.annotate(
+        total_curtidas=Count('resolucao__curtidas', distinct=True),
+        total_descurtidas=Count('resolucao__descurtidas', distinct=True),
+    ).order_by('-total_descurtidas', '-total_curtidas', F('codigo').asc(nulls_last=True), 'id')
+    pagina = Paginator(questoes, QUESTOES_POR_PAGINA_TABELA).get_page(request.GET.get('page'))
+
     context = {
         'form': form,
         'colunas': COLUNAS,
@@ -410,6 +431,11 @@ def importar_questoes(request):
         'erros': erros[:MAX_ERROS_EXIBIDOS],
         'total_erros': len(erros),
         'erros_ocultos': max(len(erros) - MAX_ERROS_EXIBIDOS, 0),
+        'pagina': pagina,
+        # Colunas de ações da tabela: só para o superusuário e o grupo "Administrador"
+        'pode_gerenciar': pode_gerenciar_questoes(request.user),
+        # O admin do Django exige is_staff além da permissão; sem ela o link só levaria ao login do admin
+        'pode_editar_no_admin': request.user.is_staff and request.user.has_perm('questoes.change_questao'),
     }
     return render(request, 'questoes/importar_questoes.html', context)
 
@@ -422,3 +448,26 @@ def modelo_planilha(request):
     # attachment: o navegador baixa o arquivo em vez de abrir na tela
     resposta['Content-Disposition'] = 'attachment; filename="modelo_importacao_questoes.csv"'
     return resposta
+
+
+# Apaga uma questão (e, em cascata, alternativas, resolução, histórico de respostas e comentários).
+# GET pede a confirmação (funciona sem JavaScript); o POST apaga de fato. Só superusuário e "Administrador".
+@login_required
+@require_http_methods(['GET', 'POST'])
+def apagar_questao(request, questao_id):
+    if not pode_gerenciar_questoes(request.user):
+        raise PermissionDenied
+    questao = get_object_or_404(Questao, pk=questao_id)
+    rotulo = questao.codigo or f'Questão {questao.pk}'
+    if request.method == 'POST':
+        questao.delete()
+        messages.success(request, f'Questão "{rotulo}" apagada.')
+        return redirect('questoes:importar_questoes')
+    return render(request, 'questoes/apagar_questao.html', {
+        'questao': questao,
+        'rotulo': rotulo,
+        # O que vai junto com a questão, para o admin decidir com todos os fatos
+        'total_alternativas': questao.alternativas.count(),
+        'total_respostas': questao.historico.count(),
+        'total_comentarios': questao.comentarios.count(),
+    })
