@@ -21,6 +21,13 @@ urlpatterns = [
     path('resolucao/<int:resolucao_id>/curtir/', views.curtir_resolucao, name='curtir_resolucao'),
     # Descurte (👎) a resolução oficial ou, se já descurtida, desfaz. Só existe para a resolução.
     path('resolucao/<int:resolucao_id>/descurtir/', views.descurtir_resolucao, name='descurtir_resolucao'),
+    # Simulados: tela de criação (filtros em cascata + situação), o POST que cria e a tela de resolução.
+    path('simulados/novo/', views.novo_simulado, name='novo_simulado'),
+    path('simulados/criar/', views.criar_simulado, name='criar_simulado'),
+    path('simulados/<int:simulado_id>/', views.simulado_detalhe, name='simulado_detalhe'),
+    # Renomear e apagar (o apagar pede confirmação antes: GET mostra a pergunta, POST apaga).
+    path('simulados/<int:simulado_id>/editar/', views.editar_simulado, name='editar_simulado'),
+    path('simulados/<int:simulado_id>/apagar/', views.apagar_simulado, name='apagar_simulado'),
     # Upload da planilha .csv de importação (restrito a quem tem a permissão importar_questoes).
     path('importar/', views.importar_questoes, name='importar_questoes'),
     path('importar/modelo.csv', views.modelo_planilha, name='modelo_planilha'),

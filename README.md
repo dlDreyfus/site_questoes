@@ -7,7 +7,18 @@ desempenho e discutir as questões com outros usuários.
 
 - **Resolução de questões** de múltipla escolha (ME) e certo/errado (CE), com correção imediata,
   resolução oficial e paginação.
-- **Filtros** por banca, órgão, cargo, ano, matéria e tópico.
+- **Filtros em cascata** por banca, órgão, cargo, ano, matéria e tópico: ao escolher um filtro, os
+  demais dropdowns passam a listar só as opções que ainda têm questões com aquela escolha.
+- **Subcabeçalho com o total de questões** cadastradas, no topo de todas as páginas para quem está
+  logado. Na lista e no painel, conta só as questões que atendem aos filtros escolhidos.
+- **Simulados** (`/simulados/novo/`, a partir do Meu Desempenho ou da lista de questões, que já leva
+  os filtros escolhidos): o usuário escolhe os mesmos filtros
+  da lista (em cascata) mais a **situação** — "Somente questões que errei" (a última resposta à
+  questão foi errada) ou "Questões que ainda não resolvi" — e o site grava um conjunto fixo com as
+  questões que atendem. Dentro do simulado cada questão é respondida uma vez, e o progresso e o
+  resultado aparecem no simulado e na lista "Meus simulados" do Meu Desempenho. As respostas também
+  entram nas estatísticas do painel. Cada simulado pode ser **renomeado** e **apagado** (com página
+  de confirmação); apagar mantém as respostas no desempenho do usuário.
 - **Painel de desempenho** (`/usuarios/dashboard/`) com total de respostas e taxa de acerto,
   filtrável por banca, cargo, matéria e tópico.
 - **Fórum por questão**: comentários, respostas a comentários e curtidas; a resolução oficial
@@ -52,23 +63,20 @@ superusuário, que também dá acesso ao `/admin/`.
 | Variável               | Obrigatória | Descrição                                                        |
 |------------------------|-------------|-------------------------------------------------------------------|
 | `DJANGO_SECRET_KEY`    | Sim         | Chave secreta do Django                                          |
-| `DJANGO_DEBUG`         | Não         | `True` (padrão) em desenvolvimento; `False` em produção          |
-| `DJANGO_ALLOWED_HOSTS` | Em produção | Domínios do site separados por vírgula (ex: `meusite.pythonanywhere.com`) |
+| `DJANGO_DEBUG`         | Não         | Padrão `False` (produção); use `True` em desenvolvimento (o `.env.example` já traz `True`) |
+| `DJANGO_ALLOWED_HOSTS` | Em produção | Domínios do site separados por vírgula (ex: `meusite.pythonanywhere.com`). Sem a variável, usa `dlDreyfus.pythonanywhere.com` |
 
 As variáveis podem ser definidas no ambiente ou no arquivo `.env` na raiz do projeto, que fica
 fora do git. As do ambiente têm prioridade.
 
 ### E-mails
 
-Só a recuperação de senha envia e-mails. Nenhum servidor de e-mail vem configurado,
-então o Django tenta usar um servidor SMTP em `localhost:25`. Para testar localmente sem servidor
-de e-mail, defina em `core/settings.py`:
+Só a recuperação de senha envia e-mails. Em `core/settings.py`, `MAILERS` usa o backend `console`
+do Django: nenhum e-mail é realmente enviado, e o conteúdo (com o link para redefinir a senha)
+aparece no terminal do `runserver` ou no log do servidor.
 
-```python
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-```
-
-Assim os e-mails, com o link para redefinir a senha, aparecem no terminal do `runserver`.
+Isso serve para desenvolvimento, mas em produção a recuperação de senha só funciona de fato depois
+de trocar o backend `console` de `MAILERS` por um servidor SMTP real.
 
 ## Importação de questões por CSV
 

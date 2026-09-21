@@ -2,7 +2,16 @@ from django import forms
 from django.core.validators import FileExtensionValidator
 from django.template.defaultfilters import filesizeformat
 
-from .models import COMENTARIO_TAMANHO_MAXIMO, Comentario
+from .models import COMENTARIO_TAMANHO_MAXIMO, Comentario, Simulado
+
+
+# Edição do simulado: só o nome. As questões são um conjunto fixo (para outras questões, crie outro simulado)
+class SimuladoForm(forms.ModelForm):
+    class Meta:
+        model = Simulado
+        fields = ['nome']
+        labels = {'nome': 'Nome do simulado'}
+        error_messages = {'nome': {'required': 'Dê um nome ao simulado.'}}
 
 
 # Valida o comentário ou resposta do fórum. A questão e o autor vêm da view; a caixa de texto é

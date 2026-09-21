@@ -1,0 +1,16 @@
+{# Paginação: a tag querystring mantém os parâmetros da URL (ex: filtros) e troca só o número da página #}
+{% if pagina.has_other_pages %}
+<nav class="paginacao" aria-label="Paginação">
+    {% if pagina.has_previous %}
+    <a href="{% querystring page=1 %}">&laquo; Primeira</a>
+    <a href="{% querystring page=pagina.previous_page_number %}">Anterior</a>
+    {% endif %}
+
+    <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+
+    {% if pagina.has_next %}
+    <a href="{% querystring page=pagina.next_page_number %}">Próxima</a>
+    <a href="{% querystring page=pagina.paginator.num_pages %}">Última &raquo;</a>
+    {% endif %}
+</nav>
+{% endif %}

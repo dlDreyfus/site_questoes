@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
 from django.shortcuts import render, redirect
 from questoes.filtros import FiltrosQuestao
-from questoes.models import HistoricoResolucao, Questao
+from questoes.models import HistoricoResolucao, Questao, Simulado
 from .forms import CadastroUsuarioForm
 
 
@@ -58,6 +58,16 @@ def dashboard(request):
         'erros': total - acertos,
         # Evita divisão por zero quando o usuário ainda não respondeu nada
         'percentual': round(acertos / total * 100, 1) if total else 0,
+        # Subcabeçalho (base.html): questões cadastradas que atendem aos filtros (não só as respondidas)
+        'total_questoes': filtros.aplicar(Questao.objects.all()).count(),
+        # Simulados do usuário com o progresso de cada um. Não dependem dos filtros do painel.
+        # distinct=True: os Count juntos multiplicariam as linhas do JOIN. order_by explícito: o Count
+        # gera GROUP BY, que ignora o Meta.ordering (os mais recentes precisam vir primeiro).
+        'simulados': request.user.simulados.annotate(
+            qtd_questoes=Count('questoes', distinct=True),
+            qtd_respondidas=Count('resolucoes', distinct=True),
+            qtd_acertos=Count('resolucoes', filter=Q(resolucoes__acertou=True), distinct=True),
+        ).order_by(*Simulado._meta.ordering),
         **filtros.contexto(campos=FILTROS_DASHBOARD),
     }
     return render(request, 'usuarios/dashboard.html', context)

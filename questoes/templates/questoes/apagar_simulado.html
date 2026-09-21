@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Apagar Simulado{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h2>Apagar simulado</h2>
+</div>
+
+{# Confirmação sem JavaScript: só o POST desta página apaga o simulado #}
+<div class="dashboard-card confirmacao">
+    <h3>Apagar "{{ simulado.nome }}"?</h3>
+    <p>Esta ação não pode ser desfeita.</p>
+    {% if respondidas %}
+    <p>
+        As {{ respondidas }} {% if respondidas == 1 %}resposta dada{% else %}respostas dadas{% endif %} nele continuam
+        contando no seu desempenho; só deixam de aparecer neste simulado.
+    </p>
+    {% endif %}
+    <form method="POST" class="acoes-confirmacao">
+        {% csrf_token %}
+        <button type="submit" class="btn-perigo-confirmar">Sim, apagar</button>
+        <a href="{% url 'questoes:simulado_detalhe' simulado.id %}" class="btn-limpar">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

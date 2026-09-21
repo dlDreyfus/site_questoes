@@ -180,17 +180,51 @@ class HistoricoResolucao(models.Model):
     acertou = models.BooleanField()
     # Preenchido automaticamente com a data/hora da resposta.
     data_resposta = models.DateTimeField(auto_now_add=True)
+    # Simulado em que a resposta foi dada (vazio = resposta na lista de questões). SET_NULL: se o
+    # simulado for apagado, a resposta continua valendo nas estatísticas do painel de desempenho.
+    simulado = models.ForeignKey(
+        'Simulado', on_delete=models.SET_NULL, null=True, blank=True, related_name='resolucoes',
+    )
 
     class Meta:
         ordering = ['-data_resposta']
         verbose_name = 'histórico de resolução'
         verbose_name_plural = 'histórico de resoluções'
+        constraints = [
+            # Num simulado cada questão é respondida uma única vez (fora dele, pode-se refazer à vontade)
+            models.UniqueConstraint(
+                fields=['simulado', 'questao'],
+                condition=models.Q(simulado__isnull=False),
+                name='uma_resposta_por_questao_no_simulado',
+            ),
+        ]
 
     # Representação textual da tentativa.
     def __str__(self):
         return f"{self.usuario} - Questão {self.questao_id} - {'Acertou' if self.acertou else 'Errou'}"
 
-# 4. FÓRUM (comentários das questões)
+# 4. SIMULADOS
+
+# Simulado: conjunto FIXO de questões escolhido pelo usuário. As questões que atendiam aos filtros
+# no momento da criação ficam gravadas aqui: cadastrar ou responder questões depois não muda o simulado.
+class Simulado(models.Model):
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='simulados')
+    nome = models.CharField(max_length=100)
+    # Resumo legível dos filtros usados na criação (ex: "Banca: FGV · Ano: 2024"), só para exibir
+    descricao = models.TextField(blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    # N:M - as questões do simulado; related_name='simulados' permite questao.simulados.all()
+    questoes = models.ManyToManyField(Questao, related_name='simulados')
+
+    class Meta:
+        # Mais recentes primeiro
+        ordering = ['-criado_em', '-id']
+
+    def __str__(self):
+        return f'{self.nome} ({self.usuario})'
+
+
+# 5. FÓRUM (comentários das questões)
 
 # Tamanho máximo de um comentário: 1 a 2 parágrafos, suficiente para explicar um raciocínio
 # ou citar um artigo de lei sem virar redação. Para mudar o limite, altere só este número

@@ -34,12 +34,17 @@ if _arquivo_env.exists():
 SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# Padrão True para não quebrar o runserver local; em produção defina DJANGO_DEBUG=False no .env
+# Padrão False (seguro para produção); em desenvolvimento defina DJANGO_DEBUG=True no .env
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
 # Domínios que podem servir o site (ex: "meusite.pythonanywhere.com"), separados por vírgula.
+# Sem a variável DJANGO_ALLOWED_HOSTS, usa o domínio do deploy no PythonAnywhere.
 # Com DEBUG=True, localhost/127.0.0.1 já funcionam mesmo com a lista vazia.
-ALLOWED_HOSTS = ['dlDreyfus.pythonanywhere.com']
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get('DJANGO_ALLOWED_HOSTS', 'dlDreyfus.pythonanywhere.com').split(',')
+    if host.strip()
+]
 
 
 # Application definition
@@ -81,6 +86,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                # Total de questões do subcabeçalho (templates/base.html)
+                'questoes.context_processors.total_questoes',
             ],
         },
     },
