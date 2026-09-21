@@ -27,6 +27,10 @@ desempenho e discutir as questões com outros usuários.
   e recuperação de senha por e-mail.
 - **Importação de questões por planilha CSV** (`/importar/`), restrita a quem tem a permissão
   `questoes.importar_questoes`.
+  A mesma tela traz a tabela de questões com **código, curtidas e descurtidas** da resolução oficial
+  (ordem: mais descurtidas, mais curtidas, código). Só o **superusuário e o grupo "Administrador"**
+  veem, em cada linha, **Alterar** (abre a questão no admin do Django, exige `is_staff`) e
+  **Deletar** (página de confirmação; apaga também alternativas, resolução, histórico e comentários).
 - **Admin do Django** (`/admin/`) para cadastrar e editar bancas, órgãos, cargos, matérias,
   tópicos e questões.
 

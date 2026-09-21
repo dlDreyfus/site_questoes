@@ -31,5 +31,7 @@ urlpatterns = [
     # Upload da planilha .csv de importação (restrito a quem tem a permissão importar_questoes).
     path('importar/', views.importar_questoes, name='importar_questoes'),
     path('importar/modelo.csv', views.modelo_planilha, name='modelo_planilha'),
+    # Apagar uma questão (GET confirma, POST apaga); só superusuário e grupo "Administrador".
+    path('questao/<int:questao_id>/apagar/', views.apagar_questao, name='apagar_questao'),
 # Fecha a lista de rotas.
 ]

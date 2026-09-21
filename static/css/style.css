@@ -891,6 +891,18 @@ body.pagina-login {
     background-color: var(--cor-hover);
 }
 
+/* Botões de Alterar/Deletar dentro da linha da tabela: menores e lado a lado */
+.acoes-linha {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.acoes-linha a {
+    padding: 6px 12px;
+    font-size: 0.9em;
+}
+
 .form-upload .errorlist {
     list-style: none;
     padding: 0;
