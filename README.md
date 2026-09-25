@@ -99,6 +99,87 @@ contas gratuitas só enviam pelo Gmail: use `smtp.gmail.com`, a conta como `EMAI
 `EMAIL_HOST_PASSWORD`. Depois de preencher o `.env`, teste com
 `python manage.py sendtestemail seu-email@exemplo.com` e recarregue o site na aba Web.
 
+## Deploy no PythonAnywhere
+
+O site roda em https://dlDreyfus.pythonanywhere.com, com o projeto em `~/site_questoes` e o
+virtualenv `meu-ambiente`. Os comandos abaixo são para um **console Bash** do PythonAnywhere.
+
+### Atualizar o site (a cada nova versão no GitHub)
+
+```bash
+workon meu-ambiente
+cd ~/site_questoes
+git pull
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py collectstatic --noinput
+```
+
+Depois, clique em **Reload** na aba **Web**. O `collectstatic` é obrigatório sempre que CSS ou
+JavaScript mudarem: o site serve a cópia reunida em `staticfiles/`, não a pasta `static/`.
+
+### Primeira instalação
+
+1. **Código e dependências**
+   ```bash
+   git clone https://github.com/dlDreyfus/site_questoes.git ~/site_questoes
+   mkvirtualenv meu-ambiente --python=python3.13
+   pip install -r ~/site_questoes/requirements.txt
+   ```
+2. **Arquivo `~/site_questoes/.env`** (pela aba **Files** ou com `nano`), a partir do `.env.example`:
+   ```ini
+   DJANGO_SECRET_KEY=<gere uma chave nova, veja "Como rodar localmente">
+   DJANGO_DEBUG=False
+   DJANGO_ALLOWED_HOSTS=dlDreyfus.pythonanywhere.com
+   # E-mail (veja "E-mails"); vazio, a recuperação de senha não envia nada
+   EMAIL_HOST=smtp.gmail.com
+   EMAIL_PORT=587
+   EMAIL_HOST_USER=sua-conta@gmail.com
+   EMAIL_HOST_PASSWORD=<senha de app de 16 letras>
+   DJANGO_DEFAULT_FROM_EMAIL=Simulado <sua-conta@gmail.com>
+   ```
+   O `.env` fica fora do git: o `git pull` nunca o altera. Nunca deixe `DJANGO_DEBUG=True` em produção
+   (as páginas de erro mostrariam configurações e código para qualquer visitante).
+3. **Banco, arquivos estáticos e administrador**
+   ```bash
+   cd ~/site_questoes
+   python manage.py migrate
+   python manage.py collectstatic --noinput
+   python manage.py createsuperuser
+   ```
+4. **Aba Web**
+   - **Virtualenv**: `/home/dlDreyfus/.virtualenvs/meu-ambiente`
+   - **WSGI configuration file**: só precisa apontar para o projeto. As variáveis ficam no `.env`,
+     que o `core/settings.py` lê sozinho; não as repita aqui (o valor do WSGI teria prioridade sobre
+     o `.env`, e o console Bash não o enxerga).
+     ```python
+     import os
+     import sys
+
+     caminho = '/home/dlDreyfus/site_questoes'
+     if caminho not in sys.path:
+         sys.path.insert(0, caminho)
+
+     os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
+
+     from django.core.wsgi import get_wsgi_application
+     application = get_wsgi_application()
+     ```
+   - **Static files**: URL `/static/` → Directory `/home/dlDreyfus/site_questoes/staticfiles`
+   - Clique em **Reload**.
+
+### Problemas comuns
+
+| Sintoma | Causa e solução |
+|---------|-----------------|
+| `KeyError: 'DJANGO_SECRET_KEY'` ao rodar `manage.py` no console | Falta o `~/site_questoes/.env` (variáveis definidas só no arquivo WSGI não valem no console). Crie o `.env` com a mesma chave usada pelo site: trocar a chave desloga todos os usuários. |
+| **Bad Request (400)** em todas as páginas | O domínio não está em `DJANGO_ALLOWED_HOSTS`. Uma linha `DJANGO_ALLOWED_HOSTS=` vazia no `.env` bloqueia tudo. O Error log da aba Web mostra `Invalid HTTP_HOST header`. |
+| Admin (ou o site) sem CSS | Faltou o `collectstatic` ou o mapeamento `/static/` aponta para `static/` em vez de `staticfiles/`. Teste abrindo `/static/admin/css/base.css`. |
+| Mudança de CSS/JS não aparece | Faltou `collectstatic --noinput` e **Reload** depois do `git pull`; no navegador, Ctrl+F5. |
+| Recuperação de senha não chega | `EMAIL_HOST` vazio no `.env` ou senha errada (no Gmail, use a senha de app). Teste com `python manage.py sendtestemail seu-email@exemplo.com`. |
+
+Depois de mudar o `.env` ou o arquivo WSGI, clique em **Reload**: o site só lê as variáveis ao iniciar.
+
 ## Importação de questões por CSV
 
 A página `/importar/` mostra todas as colunas aceitas e oferece uma planilha modelo para baixar
