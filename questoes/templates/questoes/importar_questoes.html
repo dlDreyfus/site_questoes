@@ -44,7 +44,8 @@
 <section class="painel questoes-votos">
     <h3>Questões cadastradas</h3>
     <p class="painel-texto">
-        Curtidas e descurtidas da resolução oficial de cada questão. Ordem: mais descurtidas, depois mais
+        Curtidas e descurtidas da resolução oficial de cada questão e quantas vezes ela foi respondida
+        (somando todos os usuários). Ordem: mais descurtidas, depois mais respondidas, depois mais
         curtidas e, por fim, o código em ordem alfabética.
     </p>
     {# A tabela rola na horizontal no celular, sem estourar a largura da página #}
@@ -55,6 +56,7 @@
                     <th>Código da questão</th>
                     <th>Curtidas</th>
                     <th>Descurtidas</th>
+                    <th>Respondidas</th>
                     {% if pode_gerenciar %}<th>Ações</th>{% endif %}
                 </tr>
             </thead>
@@ -64,6 +66,7 @@
                     <td>{% if questao.codigo %}{{ questao.codigo }}{% else %}<em>sem código (id {{ questao.pk }})</em>{% endif %}</td>
                     <td>{{ questao.total_curtidas }}</td>
                     <td>{{ questao.total_descurtidas }}</td>
+                    <td>{{ questao.total_respondidas }}</td>
                     {% if pode_gerenciar %}
                     <td>
                         <div class="acoes-linha">
@@ -77,7 +80,7 @@
                     {% endif %}
                 </tr>
                 {% empty %}
-                <tr><td colspan="{% if pode_gerenciar %}4{% else %}3{% endif %}">Nenhuma questão cadastrada.</td></tr>
+                <tr><td colspan="{% if pode_gerenciar %}5{% else %}4{% endif %}">Nenhuma questão cadastrada.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

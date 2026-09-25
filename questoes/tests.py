@@ -91,12 +91,18 @@ class ListaQuestoesTests(BaseQuestoesTestCase):
 
     def test_dropdowns_mostram_as_opcoes_e_mantem_a_selecao(self):
         resposta = self.client.get(self.url, {'orgao': self.outro_orgao.id, 'cargo': self.cargo.id})
-        self.assertContains(resposta, f'<option value="{self.outro_orgao.id}" selected>TCE-RJ</option>', html=True)
-        self.assertContains(resposta, f'<option value="{self.cargo.id}" selected>Auditor</option>', html=True)
+        self.assertContains(
+            resposta, f'<label class="filtro-opcao"><input type="checkbox" name="orgao" value="{self.outro_orgao.id}" '
+            'checked> TCE-RJ</label>', html=True,
+        )
+        self.assertContains(
+            resposta, f'<label class="filtro-opcao"><input type="checkbox" name="cargo" value="{self.cargo.id}" '
+            'checked> Auditor</label>', html=True,
+        )
         # Tópicos agrupados por matéria (só os que têm questões: os filtros funcionam em cascata)
         resposta = self.client.get(self.url)
-        self.assertContains(resposta, '<optgroup label="Direito Administrativo">')
-        self.assertNotContains(resposta, '<optgroup label="Direito Constitucional">')
+        self.assertContains(resposta, 'aria-label="Direito Administrativo"')
+        self.assertNotContains(resposta, 'aria-label="Direito Constitucional"')
 
     def test_com_materia_escolhida_so_aparecem_os_topicos_dela(self):
         resposta = self.client.get(self.url, {'materia': self.direito.id})
@@ -107,7 +113,7 @@ class ListaQuestoesTests(BaseQuestoesTestCase):
     def test_topico_de_outra_materia_e_ignorado(self):
         # Ex: o usuário escolheu um tópico de Constitucional e depois trocou a matéria para Administrativo
         resposta = self.client.get(self.url, {'materia': self.direito.id, 'topico': self.topico_constitucional.id})
-        self.assertIsNone(resposta.context['topico_selecionado'])
+        self.assertEqual(resposta.context['selecionados']['topico'], ())
         self.assertEqual(list(resposta.context['questoes']), [self.questao, self.outra_questao])
 
     def test_conta_os_filtros_ativos(self):

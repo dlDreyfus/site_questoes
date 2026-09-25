@@ -1,8 +1,10 @@
-{# Formulário de filtros compartilhado pela lista de questões e pelo painel "Meu Desempenho". #}
+{# Formulário de filtros compartilhado pela lista de questões, pelo painel "Meu Desempenho" e pelo novo simulado. #}
 {# Recebe o contexto de FiltrosQuestao.contexto() (questoes/filtros.py); filtros_campos diz quais #}
-{# dropdowns exibir. As opções chegam em cascata: cada dropdown só traz o que ainda combina com o que #}
-{# foi escolhido nos outros (o formulário é reenviado a cada mudança, então a view já monta as opções #}
-{# certas). A URL do formulário e do "Limpar" é a da própria página (request.path). #}
+{# filtros exibir (a busca textual aparece sempre, antes deles). Cada filtro aceita várias opções: é #}
+{# uma lista de caixas de marcação dentro de um <details>, que abre e fecha como um dropdown. As opções #}
+{# chegam em cascata: cada filtro só traz o que ainda combina com o que foi escolhido nos outros (o #}
+{# formulário é reenviado a cada mudança, então a view já monta as opções certas). #}
+{# selecionados = {campo: (valores marcados)}. A URL do formulário e do "Limpar" é a da própria página. #}
 {# Botão que abre/fecha os filtros no celular. Começa com 'hidden': só o static/js/filtros.js o exibe, #}
 {# então sem JavaScript os filtros ficam sempre visíveis. No tablet/computador o CSS o esconde. #}
 <button type="button" class="btn-filtros" aria-controls="filtros" aria-expanded="true" hidden>
@@ -10,102 +12,155 @@
     {% if filtros_ativos %}<span class="filtros-contador">{{ filtros_ativos }} ativo{{ filtros_ativos|pluralize }}</span>{% endif %}
 </button>
 
-<!-- Barra de Filtros: static/js/filtros.js envia o formulário assim que um dropdown muda -->
+<!-- Barra de Filtros: static/js/filtros.js envia o formulário quando um filtro alterado é fechado -->
 {# data-filtros-ativos: o JS usa para decidir se o painel começa aberto (há filtro em uso) ou fechado #}
 {# data-filtros-abertos: páginas onde os filtros são o assunto principal (novo simulado) começam sempre abertas #}
-{# data-campos: quantos dropdowns há; o CSS ajusta as colunas no computador (ex: 4 lado a lado) #}
+{# data-campos: quantos filtros há (sem contar a busca); o CSS ajusta as colunas no computador (ex: 4 lado a lado) #}
 <form method="GET" action="{{ request.path }}" class="filtro-form" id="filtros"
       data-filtros-ativos="{{ filtros_ativos }}" data-campos="{{ filtros_campos|length }}"
       {% if filtros_abertos %}data-filtros-abertos{% endif %}>
+    {# Busca textual: Enter ou o botão "Buscar" aplicam (é o primeiro botão de envio do formulário) #}
+    <div class="filtro-grupo filtro-busca">
+        <label for="busca">Buscar</label>
+        <div class="filtro-busca-campo">
+            <input type="search" name="busca" id="busca" value="{{ busca }}" maxlength="{{ busca_tamanho_maximo }}"
+                   placeholder="Palavras do enunciado ou das alternativas, ou o código da questão" enterkeyhint="search">
+            <button type="submit" class="btn-buscar">Buscar</button>
+        </div>
+    </div>
+
+    {# Cada filtro: data-nenhum é o resumo sem nada marcado; o JS troca o resumo pelos nomes marcados. #}
+    {# Sem JavaScript, o resumo mostra quantas opções estão marcadas. #}
     {% if 'banca' in filtros_campos %}
     <div class="filtro-grupo">
-        <label for="banca">Banca</label>
-        <select name="banca" id="banca">
-            <option value="">Todas as Bancas</option>
-            {% for b in bancas %}
-            <!-- A lógica 'if' garante que a opção continue selecionada após o recarregamento -->
-            <option value="{{ b.id }}" {% if banca_selecionada == b.id %}selected{% endif %}>{{ b }}</option>
-            {% endfor %}
-        </select>
+        <span class="filtro-rotulo" id="rotulo-banca">Banca</span>
+        <details class="filtro-multiplo" data-nenhum="Todas as Bancas" data-plural="bancas">
+            <summary aria-labelledby="rotulo-banca resumo-banca"><span class="filtro-resumo" id="resumo-banca">
+                {% with n=selecionados.banca|length %}{% if n %}{{ n }} {{ n|pluralize:"banca,bancas" }}{% else %}Todas as Bancas{% endif %}{% endwith %}
+            </span></summary>
+            <div class="filtro-opcoes" role="group" aria-labelledby="rotulo-banca">
+                {% for b in bancas %}
+                <label class="filtro-opcao"><input type="checkbox" name="banca" value="{{ b.id }}" {% if b.id in selecionados.banca %}checked{% endif %}> {{ b }}</label>
+                {% empty %}
+                <p class="filtro-sem-opcoes">Nenhuma banca disponível</p>
+                {% endfor %}
+            </div>
+        </details>
     </div>
     {% endif %}
 
     {% if 'orgao' in filtros_campos %}
     <div class="filtro-grupo">
-        <label for="orgao">Órgão</label>
-        <select name="orgao" id="orgao">
-            <option value="">Todos os Órgãos</option>
-            {% for o in orgaos %}
-            <option value="{{ o.id }}" {% if orgao_selecionado == o.id %}selected{% endif %}>{{ o }}</option>
-            {% endfor %}
-        </select>
+        <span class="filtro-rotulo" id="rotulo-orgao">Órgão</span>
+        <details class="filtro-multiplo" data-nenhum="Todos os Órgãos" data-plural="órgãos">
+            <summary aria-labelledby="rotulo-orgao resumo-orgao"><span class="filtro-resumo" id="resumo-orgao">
+                {% with n=selecionados.orgao|length %}{% if n %}{{ n }} {{ n|pluralize:"órgão,órgãos" }}{% else %}Todos os Órgãos{% endif %}{% endwith %}
+            </span></summary>
+            <div class="filtro-opcoes" role="group" aria-labelledby="rotulo-orgao">
+                {% for o in orgaos %}
+                <label class="filtro-opcao"><input type="checkbox" name="orgao" value="{{ o.id }}" {% if o.id in selecionados.orgao %}checked{% endif %}> {{ o }}</label>
+                {% empty %}
+                <p class="filtro-sem-opcoes">Nenhum órgão disponível</p>
+                {% endfor %}
+            </div>
+        </details>
     </div>
     {% endif %}
 
     {% if 'cargo' in filtros_campos %}
     <div class="filtro-grupo">
-        <label for="cargo">Cargo</label>
-        <select name="cargo" id="cargo">
-            <option value="">Todos os Cargos</option>
-            {% for c in cargos %}
-            <option value="{{ c.id }}" {% if cargo_selecionado == c.id %}selected{% endif %}>{{ c }}</option>
-            {% endfor %}
-        </select>
+        <span class="filtro-rotulo" id="rotulo-cargo">Cargo</span>
+        <details class="filtro-multiplo" data-nenhum="Todos os Cargos" data-plural="cargos">
+            <summary aria-labelledby="rotulo-cargo resumo-cargo"><span class="filtro-resumo" id="resumo-cargo">
+                {% with n=selecionados.cargo|length %}{% if n %}{{ n }} {{ n|pluralize:"cargo,cargos" }}{% else %}Todos os Cargos{% endif %}{% endwith %}
+            </span></summary>
+            <div class="filtro-opcoes" role="group" aria-labelledby="rotulo-cargo">
+                {% for c in cargos %}
+                <label class="filtro-opcao"><input type="checkbox" name="cargo" value="{{ c.id }}" {% if c.id in selecionados.cargo %}checked{% endif %}> {{ c }}</label>
+                {% empty %}
+                <p class="filtro-sem-opcoes">Nenhum cargo disponível</p>
+                {% endfor %}
+            </div>
+        </details>
     </div>
     {% endif %}
 
     {% if 'materia' in filtros_campos %}
     <div class="filtro-grupo">
-        <label for="materia">Matéria</label>
-        <select name="materia" id="materia">
-            <option value="">Todas as Matérias</option>
-            {% for m in materias %}
-            <option value="{{ m.id }}" {% if materia_selecionada == m.id %}selected{% endif %}>{{ m }}</option>
-            {% endfor %}
-        </select>
+        <span class="filtro-rotulo" id="rotulo-materia">Matéria</span>
+        <details class="filtro-multiplo" data-nenhum="Todas as Matérias" data-plural="matérias">
+            <summary aria-labelledby="rotulo-materia resumo-materia"><span class="filtro-resumo" id="resumo-materia">
+                {% with n=selecionados.materia|length %}{% if n %}{{ n }} {{ n|pluralize:"matéria,matérias" }}{% else %}Todas as Matérias{% endif %}{% endwith %}
+            </span></summary>
+            <div class="filtro-opcoes" role="group" aria-labelledby="rotulo-materia">
+                {% for m in materias %}
+                <label class="filtro-opcao"><input type="checkbox" name="materia" value="{{ m.id }}" {% if m.id in selecionados.materia %}checked{% endif %}> {{ m }}</label>
+                {% empty %}
+                <p class="filtro-sem-opcoes">Nenhuma matéria disponível</p>
+                {% endfor %}
+            </div>
+        </details>
     </div>
     {% endif %}
 
     {% if 'topico' in filtros_campos %}
     <div class="filtro-grupo">
-        <label for="topico">Tópico</label>
-        <select name="topico" id="topico">
-            <option value="">Todos os Tópicos</option>
-            {# Tópicos agrupados por matéria (optgroup); com uma matéria escolhida, só os dela #}
-            {% regroup topicos by materia as grupos %}
-            {% for grupo in grupos %}
-            <optgroup label="{{ grupo.grouper }}">
-                {% for t in grupo.list %}
-                <option value="{{ t.id }}" {% if topico_selecionado == t.id %}selected{% endif %}>{{ t.nome }}</option>
+        <span class="filtro-rotulo" id="rotulo-topico">Tópico</span>
+        <details class="filtro-multiplo" data-nenhum="Todos os Tópicos" data-plural="tópicos">
+            <summary aria-labelledby="rotulo-topico resumo-topico"><span class="filtro-resumo" id="resumo-topico">
+                {% with n=selecionados.topico|length %}{% if n %}{{ n }} {{ n|pluralize:"tópico,tópicos" }}{% else %}Todos os Tópicos{% endif %}{% endwith %}
+            </span></summary>
+            <div class="filtro-opcoes" role="group" aria-labelledby="rotulo-topico">
+                {# Tópicos agrupados por matéria; com matérias escolhidas, só os delas #}
+                {% regroup topicos by materia as grupos %}
+                {% for grupo in grupos %}
+                <div class="filtro-opcoes-grupo" role="group" aria-label="{{ grupo.grouper }}">
+                    <span class="filtro-opcoes-titulo" aria-hidden="true">{{ grupo.grouper }}</span>
+                    {% for t in grupo.list %}
+                    <label class="filtro-opcao"><input type="checkbox" name="topico" value="{{ t.id }}" {% if t.id in selecionados.topico %}checked{% endif %}> {{ t.nome }}</label>
+                    {% endfor %}
+                </div>
+                {% empty %}
+                <p class="filtro-sem-opcoes">Nenhum tópico disponível</p>
                 {% endfor %}
-            </optgroup>
-            {% endfor %}
-        </select>
+            </div>
+        </details>
     </div>
     {% endif %}
 
     {% if 'ano' in filtros_campos %}
     <div class="filtro-grupo">
-        <label for="ano">Ano</label>
-        <select name="ano" id="ano">
-            <option value="">Todos os Anos</option>
-            {% for a in anos %}
-            <option value="{{ a }}" {% if ano_selecionado == a %}selected{% endif %}>{{ a }}</option>
-            {% endfor %}
-        </select>
+        <span class="filtro-rotulo" id="rotulo-ano">Ano</span>
+        <details class="filtro-multiplo" data-nenhum="Todos os Anos" data-plural="anos">
+            <summary aria-labelledby="rotulo-ano resumo-ano"><span class="filtro-resumo" id="resumo-ano">
+                {% with n=selecionados.ano|length %}{% if n %}{{ n }} {{ n|pluralize:"ano,anos" }}{% else %}Todos os Anos{% endif %}{% endwith %}
+            </span></summary>
+            <div class="filtro-opcoes" role="group" aria-labelledby="rotulo-ano">
+                {% for a in anos %}
+                <label class="filtro-opcao"><input type="checkbox" name="ano" value="{{ a }}" {% if a in selecionados.ano %}checked{% endif %}> {{ a }}</label>
+                {% empty %}
+                <p class="filtro-sem-opcoes">Nenhum ano disponível</p>
+                {% endfor %}
+            </div>
+        </details>
     </div>
     {% endif %}
 
-    {# Situação (só na criação de simulados): depende do histórico de respostas de quem está logado #}
+    {# Situação (só na criação de simulados): depende do histórico de respostas de quem está logado. #}
+    {# Marcar as duas junta as questões que errei e as que ainda não resolvi. #}
     {% if 'situacao' in filtros_campos %}
     <div class="filtro-grupo">
-        <label for="situacao">Situação</label>
-        <select name="situacao" id="situacao">
-            <option value="">Todas as questões</option>
-            {% for valor, rotulo in situacoes %}
-            <option value="{{ valor }}" {% if situacao_selecionada == valor %}selected{% endif %}>{{ rotulo }}</option>
-            {% endfor %}
-        </select>
+        <span class="filtro-rotulo" id="rotulo-situacao">Situação</span>
+        <details class="filtro-multiplo" data-nenhum="Todas as questões" data-plural="situações">
+            <summary aria-labelledby="rotulo-situacao resumo-situacao"><span class="filtro-resumo" id="resumo-situacao">
+                {% with n=selecionados.situacao|length %}{% if n %}{{ n }} {{ n|pluralize:"situação,situações" }}{% else %}Todas as questões{% endif %}{% endwith %}
+            </span></summary>
+            <div class="filtro-opcoes" role="group" aria-labelledby="rotulo-situacao">
+                {% for valor, rotulo in situacoes %}
+                <label class="filtro-opcao"><input type="checkbox" name="situacao" value="{{ valor }}" {% if valor in selecionados.situacao %}checked{% endif %}> {{ rotulo }}</label>
+                {% endfor %}
+            </div>
+        </details>
     </div>
     {% endif %}
 
