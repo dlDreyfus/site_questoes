@@ -41,6 +41,14 @@ class FiltrosEmCascataTests(TestCase):
     def setUp(self):
         self.client.force_login(self.usuario)
 
+    @staticmethod
+    def caixa(campo, valor, rotulo, marcada=False):
+        """HTML de uma opção de filtro (caixa de marcação com o rótulo)."""
+        return (
+            f'<label class="filtro-opcao"><input type="checkbox" name="{campo}" value="{valor}"'
+            f'{" checked" if marcada else ""}> {rotulo}</label>'
+        )
+
     def opcoes(self, **filtros):
         """Opções que cada dropdown recebe para os filtros dados (conjuntos, para ignorar a ordem)."""
         contexto = self.client.get(self.url, filtros).context
@@ -137,8 +145,8 @@ class FiltrosEmCascataTests(TestCase):
         # Ex: uma URL antiga. Sem questões, a lista fica vazia, mas os dropdowns mostram o que está filtrando
         resposta = self.client.get(self.url, {'banca': self.cebraspe.id, 'orgao': self.tce.id})
         self.assertEqual(list(resposta.context['questoes']), [])
-        self.assertContains(resposta, f'<option value="{self.cebraspe.id}" selected>CEBRASPE</option>', html=True)
-        self.assertContains(resposta, f'<option value="{self.tce.id}" selected>TCE-RJ</option>', html=True)
+        self.assertContains(resposta, self.caixa('banca', self.cebraspe.id, 'CEBRASPE', marcada=True), html=True)
+        self.assertContains(resposta, self.caixa('orgao', self.tce.id, 'TCE-RJ', marcada=True), html=True)
 
     def test_ano_selecionado_sem_combinacao_continua_no_dropdown(self):
         opcoes = self.opcoes(banca=self.cebraspe.id, ano=2024)
@@ -146,12 +154,11 @@ class FiltrosEmCascataTests(TestCase):
 
     def test_html_so_traz_as_opcoes_disponiveis(self):
         resposta = self.client.get(self.url, {'banca': self.cebraspe.id})
-        # Confere pelo texto da opção: os ids de tabelas diferentes coincidem (várias opções têm value="2")
-        self.assertContains(resposta, f'<option value="{self.tcu.id}" >TCU</option>', html=True)
-        self.assertContains(resposta, '<option value="2022" >2022</option>', html=True)
-        self.assertNotContains(resposta, '>TCE-RJ</option>')
-        self.assertNotContains(resposta, '>Auditor</option>')
-        self.assertNotContains(resposta, '>2024</option>')
+        self.assertContains(resposta, self.caixa('orgao', self.tcu.id, 'TCU'), html=True)
+        self.assertContains(resposta, self.caixa('ano', 2022, '2022'), html=True)
+        self.assertNotContains(resposta, 'TCE-RJ')
+        self.assertNotContains(resposta, 'Auditor')
+        self.assertNotContains(resposta, 'value="2024"')
         # Bancas que não têm nenhuma questão nunca aparecem
         self.assertNotContains(resposta, 'VUNESP')
         # Matéria e tópico sem questões também não

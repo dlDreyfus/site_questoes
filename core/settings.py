@@ -143,16 +143,35 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-# Em desenvolvimento, o backend "console" não envia nada: o e-mail (ex: link de recuperação de senha)
-# é impresso no terminal do runserver. Em produção, troque por um servidor SMTP real.
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+# Com EMAIL_HOST definido (no .env ou no ambiente), os e-mails saem de verdade pelo servidor SMTP.
+# Sem ele (o normal em desenvolvimento), o backend "console" não envia nada: o e-mail (ex: link de
+# recuperação de senha) é impresso no terminal do runserver. Veja .env.example.
+if os.environ.get('EMAIL_HOST'):
+    MAILERS = {
+        'default': {
+            'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
+            'OPTIONS': {
+                'host': os.environ['EMAIL_HOST'],
+                'port': int(os.environ.get('EMAIL_PORT', 587)),
+                'username': os.environ.get('EMAIL_HOST_USER', ''),
+                'password': os.environ.get('EMAIL_HOST_PASSWORD', ''),
+                # STARTTLS na porta 587 (Gmail e a maioria dos serviços)
+                'use_tls': True,
+                # Segundos até desistir: sem isso, um servidor que não responde travaria a página
+                'timeout': 10,
+            },
+        },
+    }
+else:
+    MAILERS = {
+        'default': {
+            'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+        },
+    }
 
-# Remetente dos e-mails enviados pelo site (ex: recuperação de senha)
-DEFAULT_FROM_EMAIL = 'Simulado <nao-responda@simulado.local>'
+# Remetente dos e-mails enviados pelo site (ex: recuperação de senha). No Gmail, precisa ser a
+# própria conta de EMAIL_HOST_USER
+DEFAULT_FROM_EMAIL = os.environ.get('DJANGO_DEFAULT_FROM_EMAIL', 'Simulado <nao-responda@simulado.local>')
 
 # Validade do link de recuperação de senha, em segundos (1 dia; o padrão do Django é 3 dias)
 PASSWORD_RESET_TIMEOUT = 60 * 60 * 24

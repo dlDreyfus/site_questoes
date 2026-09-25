@@ -1,10 +1,14 @@
-{% autoescape off %}Olá, {{ user.get_username }}!
+{% autoescape off %}Olá!
 
-Recebemos um pedido para redefinir a senha da sua conta no Simulado.
-Para criar uma nova senha, acesse o link abaixo:
+Recebemos um pedido para recuperar o acesso à sua conta no Simulado.
+
+Seu nome de usuário (login) é: {{ user.get_username }}
+
+Por segurança, não enviamos a senha por e-mail. Para criar uma nova senha, acesse o link abaixo:
 
 {{ protocol }}://{{ domain }}{% url 'usuarios:redefinir_senha' uidb64=uid token=token %}
 
 O link só pode ser usado uma vez e expira em 24 horas.
-Se você não pediu a recuperação de senha, ignore este e-mail: sua senha continua a mesma.
+Se você só tinha esquecido o nome de usuário, não precisa usar o link: entre com ele e a senha de sempre.
+Se você não pediu a recuperação, ignore este e-mail: sua senha continua a mesma.
 {% endautoescape %}

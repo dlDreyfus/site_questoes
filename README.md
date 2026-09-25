@@ -7,8 +7,14 @@ desempenho e discutir as questões com outros usuários.
 
 - **Resolução de questões** de múltipla escolha (ME) e certo/errado (CE), com correção imediata,
   resolução oficial e paginação.
+- **Busca textual**, antes dos filtros: cada palavra digitada precisa aparecer no enunciado, no
+  código ou em alguma alternativa da questão.
 - **Filtros em cascata** por banca, órgão, cargo, ano, matéria e tópico: ao escolher um filtro, os
   demais dropdowns passam a listar só as opções que ainda têm questões com aquela escolha.
+- **Seleção múltipla em todos os filtros** (ex: `?banca=1&banca=2`): dentro de um filtro vale
+  qualquer opção marcada; entre filtros diferentes, todos precisam ser atendidos. Tópicos marcados
+  refinam só a matéria deles (Administrativo com Licitações + Constitucional inteira). O filtro é
+  aplicado ao fechar o dropdown.
 - **Subcabeçalho com o total de questões** cadastradas, no topo de todas as páginas para quem está
   logado. Na lista e no painel, conta só as questões que atendem aos filtros escolhidos.
 - **Simulados** (`/simulados/novo/`, a partir do Meu Desempenho ou da lista de questões, que já leva
@@ -28,7 +34,8 @@ desempenho e discutir as questões com outros usuários.
 - **Importação de questões por planilha CSV** (`/importar/`), restrita a quem tem a permissão
   `questoes.importar_questoes`.
   A mesma tela traz a tabela de questões com **código, curtidas e descurtidas** da resolução oficial
-  (ordem: mais descurtidas, mais curtidas, código). Só o **superusuário e o grupo "Administrador"**
+  e **respondidas** (quantas vezes a questão foi respondida, somando todos os usuários)
+  (ordem: mais descurtidas, mais respondidas, mais curtidas, código). Só o **superusuário e o grupo "Administrador"**
   veem, em cada linha, **Alterar** (abre a questão no admin do Django, exige `is_staff`) e
   **Deletar** (página de confirmação; apaga também alternativas, resolução, histórico e comentários).
 - **Admin do Django** (`/admin/`) para cadastrar e editar bancas, órgãos, cargos, matérias,
@@ -69,18 +76,28 @@ superusuário, que também dá acesso ao `/admin/`.
 | `DJANGO_SECRET_KEY`    | Sim         | Chave secreta do Django                                          |
 | `DJANGO_DEBUG`         | Não         | Padrão `False` (produção); use `True` em desenvolvimento (o `.env.example` já traz `True`) |
 | `DJANGO_ALLOWED_HOSTS` | Em produção | Domínios do site separados por vírgula (ex: `meusite.pythonanywhere.com`). Sem a variável, usa `dlDreyfus.pythonanywhere.com` |
+| `EMAIL_HOST`           | Em produção | Servidor SMTP (ex: `smtp.gmail.com`). Vazio: e-mails só no terminal (veja "E-mails") |
+| `EMAIL_PORT`           | Não         | Porta SMTP com STARTTLS. Padrão `587` |
+| `EMAIL_HOST_USER`      | Com SMTP    | Usuário do servidor SMTP (no Gmail, o endereço da conta) |
+| `EMAIL_HOST_PASSWORD`  | Com SMTP    | Senha do servidor SMTP (no Gmail, a senha de app) |
+| `DJANGO_DEFAULT_FROM_EMAIL` | Não    | Remetente dos e-mails. Padrão `Simulado <nao-responda@simulado.local>` |
 
 As variáveis podem ser definidas no ambiente ou no arquivo `.env` na raiz do projeto, que fica
 fora do git. As do ambiente têm prioridade.
 
 ### E-mails
 
-Só a recuperação de senha envia e-mails. Em `core/settings.py`, `MAILERS` usa o backend `console`
-do Django: nenhum e-mail é realmente enviado, e o conteúdo (com o link para redefinir a senha)
-aparece no terminal do `runserver` ou no log do servidor.
+Só a recuperação de senha envia e-mails (com o nome de usuário e o link para criar uma nova senha).
 
-Isso serve para desenvolvimento, mas em produção a recuperação de senha só funciona de fato depois
-de trocar o backend `console` de `MAILERS` por um servidor SMTP real.
+- **Sem `EMAIL_HOST`** (o normal em desenvolvimento): `MAILERS` usa o backend `console` do Django.
+  Nenhum e-mail é realmente enviado; o conteúdo aparece no terminal do `runserver` ou no log do servidor.
+- **Com `EMAIL_HOST`**: os e-mails saem pelo servidor SMTP configurado (STARTTLS, porta 587 por padrão).
+
+Em produção, a recuperação de senha só funciona de fato com o SMTP configurado. No PythonAnywhere,
+contas gratuitas só enviam pelo Gmail: use `smtp.gmail.com`, a conta como `EMAIL_HOST_USER` e uma
+[senha de app](https://myaccount.google.com/apppasswords) (exige verificação em duas etapas) como
+`EMAIL_HOST_PASSWORD`. Depois de preencher o `.env`, teste com
+`python manage.py sendtestemail seu-email@exemplo.com` e recarregue o site na aba Web.
 
 ## Importação de questões por CSV
 

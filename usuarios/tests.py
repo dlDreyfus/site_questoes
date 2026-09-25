@@ -134,6 +134,12 @@ class RecuperarSenhaTests(TestCase):
         self.assertEqual(email.subject, 'Simulado - Recuperação de senha')
         self.assertIn('/usuarios/redefinir-senha/', email.body)
 
+    def test_email_informa_o_nome_de_usuario_mas_nunca_a_senha(self):
+        self.pedir_link()
+        corpo = mail.outbox[0].body
+        self.assertIn('Seu nome de usuário (login) é: aluno', corpo)
+        self.assertNotIn('senha-antiga-123', corpo)
+
     def test_email_inexistente_nao_revela_nada(self):
         resposta = self.pedir_link('ninguem@exemplo.com')
         # Mesmo redirecionamento de quando o e-mail existe, mas nenhum e-mail é enviado
@@ -311,7 +317,10 @@ class DashboardFiltrosTests(TestCase):
             self.assertNotContains(resposta, f'name="{campo}"')
         self.assertContains(resposta, 'data-campos="4"')
         self.assertContains(resposta, f'action="{self.url}"')
-        self.assertContains(resposta, f'<option value="{self.fgv.id}" selected>FGV</option>', html=True)
+        self.assertContains(
+            resposta, f'<label class="filtro-opcao"><input type="checkbox" name="banca" value="{self.fgv.id}" checked> '
+            'FGV</label>', html=True,
+        )
         # Com a matéria escolhida, o dropdown de tópicos só tem os tópicos dela
         self.assertEqual(set(resposta.context['topicos']), {self.licitacoes, self.contratos})
         self.assertContains(resposta, '<span class="filtros-contador">2 ativos</span>', html=True)

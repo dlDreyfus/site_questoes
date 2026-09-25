@@ -7,7 +7,7 @@
 {% block content %}
 <div class="login-box">
     <h2>Recuperar Senha</h2>
-    <p class="login-texto">Informe o e-mail da sua conta. Enviaremos um link para você criar uma nova senha.</p>
+    <p class="login-texto">Informe o e-mail da sua conta. Enviaremos o seu nome de usuário e um link para você criar uma nova senha.</p>
     <form method="POST">
         {% csrf_token %}
         {{ form.as_p }}

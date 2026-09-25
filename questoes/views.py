@@ -4,6 +4,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q, Subquery
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -109,14 +110,14 @@ def lista_questoes(request):
     # A ordem (ano mais recente primeiro) vem do Meta.ordering de Questao
     questoes = Questao.objects.select_related('banca', 'orgao', 'cargo').prefetch_related('alternativas')
 
-    # 2 e 3. Lê os filtros da URL (ex: ?banca=1&orgao=2&cargo=3&materia=4&topico=5&ano=2024) e os aplica
+    # 2 e 3. Lê os filtros da URL (ex: ?busca=licitação&banca=1&banca=2&materia=4&ano=2024) e os aplica
     # (a mesma lógica é usada pelo painel "Meu Desempenho"; ver questoes/filtros.py)
     filtros = FiltrosQuestao.da_requisicao(request.GET)
     questoes = filtros.aplicar(questoes)
 
     # Botão "Novo simulado": abre a tela de criação já com os filtros que o usuário escolheu na lista
     # (só os válidos, sem a página). Sem filtros, o endereço fica limpo, sem "?" sobrando.
-    parametros = urlencode(filtros.parametros())
+    parametros = urlencode(filtros.parametros(), doseq=True)
     url_novo_simulado = reverse('questoes:novo_simulado') + (f'?{parametros}' if parametros else '')
 
     context = {
@@ -161,7 +162,7 @@ def criar_simulado(request):
 
     if not ids:
         messages.warning(request, 'Nenhuma questão atende aos filtros escolhidos. Ajuste os filtros e tente de novo.')
-        parametros = urlencode(filtros.parametros(CAMPOS_SIMULADO))
+        parametros = urlencode(filtros.parametros(CAMPOS_SIMULADO), doseq=True)
         return redirect(f"{reverse('questoes:novo_simulado')}?{parametros}")
 
     nome = request.POST.get('nome', '').strip()[:NOME_SIMULADO_MAXIMO]
@@ -414,14 +415,25 @@ def importar_questoes(request):
     else:
         form = ImportarCSVForm()
 
-    # Tabela de questões com os votos da resolução oficial. Ordem: mais descurtidas, depois mais
-    # curtidas, depois o código em ordem alfabética (questões sem código por último; o id desempata).
+    # Tabela de questões com os votos da resolução oficial e quantas vezes cada uma foi respondida.
+    # Ordem: mais descurtidas, depois mais respondidas, depois mais curtidas, depois o código em ordem
+    # alfabética (questões sem código por último; o id desempata).
     # distinct=True: com dois Count na mesma consulta, os JOINs multiplicariam as contagens.
     # Questão sem resolução oficial não tem votos: os dois totais saem 0 (LEFT JOIN).
+    # Respostas (de todos os usuários, avulsas ou em simulados) numa subconsulta: um terceiro JOIN
+    # multiplicaria as linhas por curtidas x descurtidas x respostas. Sem respostas, a subconsulta
+    # não devolve nada e o Coalesce transforma em 0.
+    respostas = (
+        HistoricoResolucao.objects.filter(questao=OuterRef('pk'))
+        .order_by().values('questao').annotate(total=Count('id')).values('total')
+    )
     questoes = Questao.objects.annotate(
         total_curtidas=Count('resolucao__curtidas', distinct=True),
         total_descurtidas=Count('resolucao__descurtidas', distinct=True),
-    ).order_by('-total_descurtidas', '-total_curtidas', F('codigo').asc(nulls_last=True), 'id')
+        total_respondidas=Coalesce(Subquery(respostas), 0),
+    ).order_by(
+        '-total_descurtidas', '-total_respondidas', '-total_curtidas', F('codigo').asc(nulls_last=True), 'id',
+    )
     pagina = Paginator(questoes, QUESTOES_POR_PAGINA_TABELA).get_page(request.GET.get('page'))
 
     context = {

@@ -110,12 +110,12 @@ class SituacaoDaQuestaoTests(BaseSimuladosTestCase):
     def test_situacao_invalida_ou_sem_usuario_e_ignorada(self):
         self.assertEqual(self.questoes('inexistente'), {self.q1, self.q2, self.q3})
         sem_usuario = FiltrosQuestao.da_requisicao({'situacao': 'erradas'}, campos=CAMPOS_SIMULADO)
-        self.assertIsNone(sem_usuario.situacao)
+        self.assertEqual(sem_usuario.situacao, ())
 
     def test_lista_e_painel_nao_aceitam_situacao(self):
         # A situação só existe na criação de simulados: nas outras telas o parâmetro é ignorado
         filtros = FiltrosQuestao.da_requisicao({'situacao': 'erradas'}, campos=TODOS_OS_CAMPOS, usuario=self.usuario)
-        self.assertIsNone(filtros.situacao)
+        self.assertEqual(filtros.situacao, ())
         self.assertEqual(filtros.ativos, 0)
 
     def test_situacao_conta_como_filtro_ativo(self):
@@ -165,7 +165,8 @@ class NovoSimuladoTests(BaseSimuladosTestCase):
     def test_situacao_escolhida_fica_selecionada(self):
         resposta = self.client.get(self.url, {'situacao': 'erradas'})
         self.assertContains(
-            resposta, '<option value="erradas" selected>Somente questões que errei</option>', html=True,
+            resposta, '<label class="filtro-opcao"><input type="checkbox" name="situacao" value="erradas" checked> '
+            'Somente questões que errei</label>', html=True,
         )
 
     def test_mostra_quantas_questoes_o_simulado_teria(self):
@@ -457,9 +458,13 @@ class NovoSimuladoNaListaTests(BaseSimuladosTestCase):
         resposta = self.client.get(url)
         self.assertEqual(resposta.status_code, 200)
         self.assertContains(
-            resposta, f'<option value="{self.administrativo.id}" selected>Direito Administrativo</option>', html=True,
+            resposta, f'<label class="filtro-opcao"><input type="checkbox" name="materia" '
+            f'value="{self.administrativo.id}" checked> Direito Administrativo</label>', html=True,
         )
-        self.assertContains(resposta, '<option value="2023" selected>2023</option>', html=True)
+        self.assertContains(
+            resposta, '<label class="filtro-opcao"><input type="checkbox" name="ano" value="2023" checked> 2023</label>',
+            html=True,
+        )
         self.assertContains(resposta, 'Criar simulado com 1 questão')
 
     def test_botao_tambem_aparece_na_lista_vazia(self):

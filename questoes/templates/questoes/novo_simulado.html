@@ -10,10 +10,10 @@
 </div>
 
 <p class="simulado-explicacao">
-    Escolha os filtros e crie um simulado só com as questões que combinam com eles. As opções de cada
-    filtro mostram apenas o que ainda tem questões com o que você já escolheu. Use "Situação" para
-    refazer o que errou ou resolver o que ainda não viu. As questões ficam gravadas no simulado, e você
-    o encontra depois em Meu Desempenho.
+    Escolha os filtros e crie um simulado só com as questões que combinam com eles. Cada filtro aceita
+    várias opções ao mesmo tempo, e as opções mostram apenas o que ainda tem questões com o que você já
+    escolheu. Use "Situação" para refazer o que errou ou resolver o que ainda não viu. As questões ficam
+    gravadas no simulado, e você o encontra depois em Meu Desempenho.
 </p>
 
 {# Filtros em cascata (banca, órgão, cargo, matéria, tópico, ano e situação): ver questoes/_filtros.html #}
@@ -22,9 +22,10 @@
 {# O formulário abaixo reenvia os filtros escolhidos acima; o servidor os lê de novo ao criar o simulado #}
 <form method="POST" action="{% url 'questoes:criar_simulado' %}" class="form-simulado">
     {% csrf_token %}
-    {% for campo, valor in filtros_parametros.items %}
+    {# Um campo oculto por valor: cada filtro pode ter vários valores marcados #}
+    {% for campo, valores in filtros_parametros.items %}{% for valor in valores %}
     <input type="hidden" name="{{ campo }}" value="{{ valor }}">
-    {% endfor %}
+    {% endfor %}{% endfor %}
 
     <div class="filtro-grupo">
         <label for="nome">Nome do simulado (opcional)</label>

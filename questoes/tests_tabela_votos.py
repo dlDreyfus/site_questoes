@@ -6,7 +6,9 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
-from .models import Alternativa, Banca, Cargo, Comentario, HistoricoResolucao, Orgao, Questao, ResolucaoOficial
+from .models import (
+    Alternativa, Banca, Cargo, Comentario, HistoricoResolucao, Orgao, Questao, ResolucaoOficial, Simulado,
+)
 from .views import QUESTOES_POR_PAGINA_TABELA
 
 
@@ -93,6 +95,69 @@ class OrdenacaoETotaisTests(TabelaVotosTestCase):
             self.client.get(self.url)
         for i in range(5):
             self.criar_questao(f'B-{i}', curtidas=2, descurtidas=1)
+        with CaptureQueriesContext(connection) as muitas:
+            self.client.get(self.url)
+        self.assertEqual(len(muitas), len(poucas))
+
+
+class RespondidasTests(TabelaVotosTestCase):
+    """Coluna "Respondidas": quantas vezes a questão foi respondida, somando todos os usuários."""
+
+    def setUp(self):
+        self.client.force_login(self.superusuario)
+
+    def responder(self, questao, vezes, usuarios=None):
+        # Fora de simulado o mesmo usuário pode refazer a questão: cada tentativa conta
+        usuarios = usuarios or self.votantes
+        for i in range(vezes):
+            HistoricoResolucao.objects.create(usuario=usuarios[i % len(usuarios)], questao=questao, acertou=i % 2 == 0)
+
+    def linhas(self, resposta):
+        return [
+            (q.codigo, q.total_descurtidas, q.total_respondidas, q.total_curtidas) for q in resposta.context['pagina']
+        ]
+
+    def test_conta_as_respostas_de_todos_os_usuarios_e_de_simulados(self):
+        questao = self.criar_questao('A-1')
+        self.responder(questao, 3, usuarios=[self.aluno])       # o mesmo usuário três vezes
+        self.responder(questao, 2, usuarios=self.votantes[:2])  # outros dois usuários
+        simulado = Simulado.objects.create(usuario=self.aluno, nome='S', descricao='')
+        simulado.questoes.add(questao)
+        HistoricoResolucao.objects.create(usuario=self.aluno, questao=questao, acertou=True, simulado=simulado)
+        self.criar_questao('B-2')                               # nunca respondida: 0
+
+        resposta = self.client.get(self.url)
+        self.assertEqual(self.linhas(resposta), [('A-1', 0, 6, 0), ('B-2', 0, 0, 0)])
+        self.assertContains(resposta, '<th>Respondidas</th>', html=True)
+
+    def test_ordena_por_descurtidas_depois_respondidas_depois_curtidas_depois_codigo(self):
+        self.responder(self.criar_questao('A-1', curtidas=4, descurtidas=1), 1)
+        self.responder(self.criar_questao('B-2', curtidas=0, descurtidas=1), 5)  # mesmas descurtidas, mais respondida
+        self.responder(self.criar_questao('C-3', curtidas=1, descurtidas=0), 2)
+        self.responder(self.criar_questao('D-4', curtidas=3, descurtidas=0), 2)  # empate em respondidas: curtidas
+        self.responder(self.criar_questao('F-6', curtidas=0, descurtidas=0), 2)  # empate total com E-5: código
+        self.responder(self.criar_questao('E-5', curtidas=0, descurtidas=0), 2)
+        self.responder(self.criar_questao('G-7', curtidas=4, descurtidas=0), 0)  # muitas curtidas, nenhuma resposta
+        self.criar_questao('H-8', descurtidas=2)                                # mais descurtidas: primeiro
+
+        resposta = self.client.get(self.url)
+        self.assertEqual(self.linhas(resposta), [
+            ('H-8', 2, 0, 0), ('B-2', 1, 5, 0), ('A-1', 1, 1, 4),
+            ('D-4', 0, 2, 3), ('C-3', 0, 2, 1), ('E-5', 0, 2, 0), ('F-6', 0, 2, 0),
+            ('G-7', 0, 0, 4),
+        ])
+
+    def test_respostas_nao_multiplicam_curtidas_e_descurtidas(self):
+        self.responder(self.criar_questao('A-1', curtidas=3, descurtidas=2), 4)
+        self.assertEqual(self.linhas(self.client.get(self.url)), [('A-1', 2, 4, 3)])
+
+    def test_consultas_nao_crescem_com_as_respostas(self):
+        questao = self.criar_questao('A-1', curtidas=1)
+        self.responder(questao, 1)
+        with CaptureQueriesContext(connection) as poucas:
+            self.client.get(self.url)
+        for i in range(5):
+            self.responder(self.criar_questao(f'B-{i}', descurtidas=1), 3)
         with CaptureQueriesContext(connection) as muitas:
             self.client.get(self.url)
         self.assertEqual(len(muitas), len(poucas))
