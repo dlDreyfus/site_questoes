@@ -4,11 +4,14 @@
 {# Só no simulado: 'simulado' e, em cada questão, 'resultado' (True/False/None) e 'alternativa_marcada'. #}
 <div class="questao-card" id="questao-{{ questao.id }}">
     <p class="meta-info">
+        {# Código identificador da questão (só o valor, sem rótulo); questões sem código não mostram nada #}
+        {% if questao.codigo %}<strong class="questao-codigo">{{ questao.codigo }}</strong> | {% endif %}
         <strong>Banca:</strong> {{ questao.banca }} | <strong>Órgão:</strong> {{ questao.orgao }} |
         <strong>Cargo:</strong> {{ questao.cargo }} | <strong>Ano:</strong> {{ questao.ano }}
     </p>
-    {# linebreaksbr: mantém as quebras de linha do texto (itens I, II, III, texto-base, citações de lei) #}
-    <p class="enunciado">{{ questao.enunciado|linebreaksbr }}</p>
+    {# linebreaks: cada quebra de linha vira <br> (itens I, II, III, citações de lei) e cada linha em branco #}
+    {# abre um parágrafo (separa a identificação da questão e o texto-base do enunciado teórico) #}
+    <div class="enunciado">{{ questao.enunciado|linebreaks }}</div>
 
     <!-- Resultado da última resposta desta questão (a mensagem carrega o id da questão em extra_tags) -->
     {% for message in messages %}
@@ -22,12 +25,44 @@
     <details class="resolucao" id="resolucao-{{ resolucao_exibida.id }}" open>
         <summary>Resolução</summary>
         <p>{{ resolucao_exibida.texto|linebreaksbr }}</p>
+        {# Grade de 3 colunas: Curtir/Fácil, Descurtir/Difícil e os textos, um exatamente abaixo do outro. #}
+        {# Cada linha continua sendo um grupo .votos (os dois botões dele se excluem; ver static/js/forum.js) #}
+        <div class="votos-grade">
         {# Curtir e descurtir se excluem: o JavaScript atualiza os dois botões do grupo .votos #}
         <div class="votos">
             {% url 'questoes:curtir_resolucao' resolucao_exibida.id as url_curtir %}
             {% include 'questoes/_botao_curtir.html' with url=url_curtir ativo=resolucao_exibida.curtido total=resolucao_exibida.total_curtidas alvo='esta resolução' %}
             {% url 'questoes:descurtir_resolucao' resolucao_exibida.id as url_descurtir %}
             {% include 'questoes/_botao_curtir.html' with url=url_descurtir ativo=resolucao_exibida.descurtido total=resolucao_exibida.total_descurtidas alvo='esta resolução' tipo='descurtir' %}
+            {# Percentual de acerto de todos os usuários (cada um conta uma vez, pela primeira resposta) #}
+            {% with estatistica=resolucao_exibida.acertos_da_questao %}
+            {% if estatistica.pessoas %}
+            <span class="acertos-questao">
+                <strong>{{ estatistica.percentual }}%</strong> acertaram
+                <span class="acertos-questao-base">({{ estatistica.pessoas }} {% if estatistica.pessoas == 1 %}pessoa resolveu{% else %}pessoas resolveram{% endif %})</span>
+            </span>
+            {% endif %}
+            {% endwith %}
+        </div>
+        {# Dificuldade da questão: Fácil e Difícil se excluem, como Curtir e Descurtir (grupo .votos próprio) #}
+        {% with dificuldade=resolucao_exibida.dificuldade %}
+        <div class="votos" id="dificuldade-{{ questao.id }}">
+            {% url 'questoes:avaliar_facil' questao.id as url_facil %}
+            {% include 'questoes/_botao_curtir.html' with url=url_facil ativo=dificuldade.facil total=dificuldade.total_avaliacoes_facil alvo='como fácil' tipo='facil' %}
+            {% url 'questoes:avaliar_dificil' questao.id as url_dificil %}
+            {% include 'questoes/_botao_curtir.html' with url=url_dificil ativo=dificuldade.dificil total=dificuldade.total_avaliacoes_dificil alvo='como difícil' tipo='dificil' %}
+            {# Atualizado pelo static/js/forum.js depois de cada voto #}
+            <span class="dificuldade-questao" aria-live="polite" data-dificuldade>
+                {% if dificuldade.total_avaliacoes %}
+                <strong>{{ dificuldade.percentual_facil }}%</strong> acharam fácil ·
+                <strong>{{ dificuldade.percentual_dificil }}%</strong> acharam difícil
+                <span class="acertos-questao-base">({{ dificuldade.total_avaliacoes }} {% if dificuldade.total_avaliacoes == 1 %}pessoa classificou{% else %}pessoas classificaram{% endif %})</span>
+                {% else %}
+                Ninguém classificou a dificuldade desta questão ainda.
+                {% endif %}
+            </span>
+        </div>
+        {% endwith %}
         </div>
     </details>
     {% endif %}

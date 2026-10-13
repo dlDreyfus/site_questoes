@@ -292,12 +292,13 @@ class SimuladoDetalheTests(BaseSimuladosTestCase):
         resposta = self.client.get(self.url(simulado))
         self.assertEqual(resposta.status_code, 200)
         self.assertContains(resposta, 'Revisão')
+        # Uma questão por vez: a segunda fica na página seguinte
         self.assertContains(resposta, 'Enunciado FGV 2024')
-        self.assertContains(resposta, 'Enunciado FGV 2022')
         self.assertNotContains(resposta, 'Enunciado CEBRASPE 2023')
         # A resposta dada aqui fica ligada ao simulado
         self.assertContains(resposta, f'<input type="hidden" name="simulado" value="{simulado.id}">', html=True)
         self.assertContains(resposta, '<strong>2</strong> questões cadastradas neste simulado</p>')
+        self.assertContains(self.client.get(self.url(simulado), {'page': 2}), 'Enunciado FGV 2022')
 
     def test_progresso_conta_so_as_respostas_dadas_no_simulado(self):
         simulado = self.criar_simulado(self.q1, self.q2, self.q3)
@@ -325,8 +326,9 @@ class SimuladoDetalheTests(BaseSimuladosTestCase):
         self.assertContains(resposta, 'Resultado neste simulado: ✘ Errou')
         self.assertContains(resposta, '✔ Correta')
         self.assertContains(resposta, '✘ Sua resposta')
-        # Só a q2 (não respondida) ainda tem formulário de resposta
+        # Só a q2 (não respondida, na página seguinte) ainda tem formulário de resposta
         self.assertNotContains(resposta, f'action="{reverse("questoes:responder_questao", args=[self.q1.id])}"')
+        resposta = self.client.get(self.url(simulado), {'page': 2})
         self.assertContains(resposta, f'action="{reverse("questoes:responder_questao", args=[self.q2.id])}"')
 
     def test_resposta_certa_marcada_e_indicada_como_tal(self):
@@ -336,14 +338,17 @@ class SimuladoDetalheTests(BaseSimuladosTestCase):
         self.assertContains(resposta, 'Resultado neste simulado: ✔ Acertou')
         self.assertContains(resposta, '✔ Sua resposta (correta)')
 
-    def test_paginacao(self):
-        extras = [self.criar_questao(self.fgv, 2000 + i, self.licitacoes) for i in range(11)]
+    def test_paginacao_mostra_uma_questao_por_vez(self):
+        extras = [self.criar_questao(self.fgv, 2000 + i, self.licitacoes) for i in range(3)]
         simulado = self.criar_simulado(*extras)
         resposta = self.client.get(self.url(simulado))
-        self.assertEqual(len(resposta.context['questoes']), 10)
-        self.assertEqual(resposta.context['pagina'].paginator.count, 11)
-        self.assertContains(resposta, 'Página 1 de 2')
-        self.assertEqual(len(self.client.get(self.url(simulado), {'page': 2}).context['questoes']), 1)
+        self.assertEqual(len(resposta.context['questoes']), 1)
+        self.assertEqual(resposta.context['pagina'].paginator.count, 3)
+        self.assertContains(resposta, 'Questão 1 de 3')
+        self.assertContains(resposta, '?page=2')
+        resposta = self.client.get(self.url(simulado), {'page': 3})
+        self.assertEqual(len(resposta.context['questoes']), 1)
+        self.assertContains(resposta, 'Questão 3 de 3')
 
 
 class ResponderNoSimuladoTests(BaseSimuladosTestCase):
@@ -545,7 +550,7 @@ class EditarSimuladoTests(BaseSimuladosTestCase):
         resposta = self.client.get(self.url)
         self.assertEqual(resposta.status_code, 200)
         self.assertContains(resposta, 'value="Nome antigo"')
-        self.assertContains(resposta, 'Salvar nome')
+        self.assertContains(resposta, 'Salvar')
 
     def test_renomeia_e_volta_para_o_simulado(self):
         resposta = self.client.post(self.url, {'nome': '  Revisão nova  '})
@@ -555,7 +560,7 @@ class EditarSimuladoTests(BaseSimuladosTestCase):
         )
         self.simulado.refresh_from_db()
         self.assertEqual(self.simulado.nome, 'Revisão nova')
-        self.assertContains(self.client.get(resposta.url), 'Nome do simulado atualizado.')
+        self.assertContains(self.client.get(resposta.url), 'Simulado atualizado.')
 
     def test_renomear_nao_mexe_nas_questoes_nem_nas_respostas(self):
         self.responder(self.usuario, self.q1, True, simulado=self.simulado)
@@ -684,3 +689,23 @@ class SimuladoAdminTests(BaseSimuladosTestCase):
         resposta = self.client.get(reverse('admin:questoes_simulado_changelist'))
         self.assertContains(resposta, 'Revisão')
         self.assertEqual(self.client.get(reverse('admin:questoes_simulado_change', args=[simulado.id])).status_code, 200)
+
+
+class CodigoNoCabecalhoDaQuestaoTests(BaseSimuladosTestCase):
+    """O código identificador aparece no cabeçalho de metadados de cada questão, antes da banca."""
+
+    def test_lista_e_simulado_mostram_o_codigo_antes_da_banca(self):
+        self.q1.codigo = 'FGV-TCU-2024-001'
+        self.q1.save()
+        simulado = self.criar_simulado(self.q1)
+        for url in (reverse('questoes:lista_questoes'), reverse('questoes:simulado_detalhe', args=[simulado.id])):
+            with self.subTest(url=url):
+                html = self.client.get(url).content.decode()
+                cabecalho = html[html.index('<p class="meta-info">'):]
+                self.assertIn('<strong class="questao-codigo">FGV-TCU-2024-001</strong>', cabecalho)
+                self.assertLess(cabecalho.index('FGV-TCU-2024-001'), cabecalho.index('Banca:'))
+
+    def test_questao_sem_codigo_nao_mostra_nada_a_mais(self):
+        simulado = self.criar_simulado(self.q1)
+        html = self.client.get(reverse('questoes:simulado_detalhe', args=[simulado.id])).content.decode()
+        self.assertNotIn('questao-codigo', html)

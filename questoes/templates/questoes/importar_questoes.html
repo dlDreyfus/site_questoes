@@ -8,10 +8,14 @@
     <a href="{% url 'questoes:lista_questoes' %}" class="btn-voltar">Voltar para Questões</a>
 </div>
 
-{# Erros da importação: tudo ou nada, então nenhum registro foi gravado #}
+{# Erros do envio (novas questões ou atualização): tudo ou nada, então nenhum registro foi gravado #}
 {% if total_erros %}
 <div class="alert error importacao-erros" role="alert">
+    {% if operacao == 'atualizacao' %}
+    <p>Atualização cancelada: {{ total_erros }} erro{{ total_erros|pluralize }} encontrado{{ total_erros|pluralize }}. Nenhuma questão foi alterada. Corrija a planilha e envie novamente.</p>
+    {% else %}
     <p>Importação cancelada: {{ total_erros }} erro{{ total_erros|pluralize }} encontrado{{ total_erros|pluralize }}. Nenhum registro foi gravado. Corrija a planilha e envie novamente.</p>
+    {% endif %}
     <ul>
         {% for erro in erros %}
         <li>{{ erro }}</li>
@@ -23,20 +27,60 @@
 </div>
 {% endif %}
 
+{# Todas as questões do banco em .csv: painel próprio, antes do envio, com as colunas da importação #}
+<section class="painel">
+    <h3 class="painel-titulo">Questões cadastradas em planilha</h3>
+    <p class="painel-texto">
+        Baixe todas as questões do banco num arquivo .csv com as mesmas colunas da importação (uma questão por
+        linha). Use-o como referência do formato ou como base para a planilha de atualização.
+    </p>
+    <a href="{% url 'questoes:exportar_questoes' %}" class="btn-limpar">Baixar csv</a>
+</section>
+
 <div class="painel">
+    {# Esta importação só cadastra questões novas: um código que já existe no banco é erro (questoes/importacao.py) #}
+    <h3 class="painel-titulo">Envio de novas questões <span class="selo-importacao">Somente novas questões</span></h3>
+    <p class="alert info">
+        Esta planilha serve apenas para cadastrar questões novas. Questões já cadastradas não são alteradas:
+        se o código de uma linha já existir no banco, a importação é cancelada e o erro é indicado na linha.
+    </p>
     <p class="painel-texto">
         Envie uma planilha <strong>.csv</strong> (até 5 MB) em que <strong>cada linha é uma questão</strong>.
         Bancas, órgãos, cargos, matérias e tópicos que ainda não existem são cadastrados automaticamente.
         Se houver qualquer erro, <strong>nada é gravado</strong> e os erros são listados por linha e coluna.
     </p>
 
-    <p><a href="{% url 'questoes:modelo_planilha' %}" class="btn-limpar">Baixar modelo de planilha</a></p>
-
     {# enctype multipart/form-data: obrigatório para o navegador enviar o arquivo, e não só o nome dele #}
     <form method="POST" enctype="multipart/form-data" class="form-upload">
         {% csrf_token %}
+        <input type="hidden" name="acao" value="novas">
         {{ form.as_p }}
         <button type="submit" class="btn-submit">Enviar planilha</button>
+    </form>
+</div>
+
+{# Atualização de questões existentes pelo código (questoes/importacao.py, atualizar_csv) #}
+<div class="painel">
+    <h3 class="painel-titulo">Atualização de questões existentes <span class="selo-importacao selo-atualizacao">Somente questões já cadastradas</span></h3>
+    <p class="alert info">
+        Esta planilha serve apenas para alterar questões que já existem, localizadas pela coluna
+        <strong>codigo</strong>. Se o código de uma linha não existir no banco, a atualização é cancelada e o erro
+        é indicado na linha.
+    </p>
+    <p class="painel-texto">
+        Use as mesmas colunas do envio de novas questões (o arquivo do <strong>Baixar csv</strong> serve de base:
+        mantenha o código e apague o que não vai mudar). <strong>Célula vazia mantém o valor atual</strong>; as
+        preenchidas passam pelas mesmas validações. Algumas colunas mudam juntas: <code>materia</code> com
+        <code>topicos</code> e <code>orgao_sigla</code> com <code>orgao_nome</code>. O tipo (ME/CE) não pode ser
+        alterado. Nas alternativas, preencha só as letras que mudam; alternativas não são apagadas, e as respostas
+        já dadas continuam no histórico. Se houver qualquer erro, <strong>nada é alterado</strong>.
+    </p>
+
+    <form method="POST" enctype="multipart/form-data" class="form-upload">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="atualizacao">
+        {{ form_atualizacao.as_p }}
+        <button type="submit" class="btn-submit">Enviar planilha de atualização</button>
     </form>
 </div>
 

@@ -51,7 +51,8 @@ class SelecaoMultiplaTests(BaseSelecaoMultiplaTestCase):
     url = reverse('questoes:lista_questoes')
 
     def questoes(self, **parametros):
-        return set(self.client.get(self.url, parametros).context['questoes'])
+        # Todas as questões filtradas (a página mostra só uma por vez)
+        return set(self.client.get(self.url, parametros).context['pagina'].paginator.object_list)
 
     def test_varios_valores_no_mesmo_filtro_somam_as_questoes(self):
         casos = (
@@ -80,7 +81,7 @@ class SelecaoMultiplaTests(BaseSelecaoMultiplaTestCase):
     def test_topico_de_materia_desmarcada_e_ignorado(self):
         resposta = self.client.get(self.url, {'materia': [self.constitucional.id], 'topico': [self.licitacoes.id]})
         self.assertEqual(resposta.context['selecionados']['topico'], ())
-        self.assertEqual(set(resposta.context['questoes']), {self.q3})
+        self.assertEqual(set(resposta.context['pagina'].paginator.object_list), {self.q3})
 
     def test_cascata_oferece_as_opcoes_para_marcar_mais_valores(self):
         contexto = self.client.get(self.url, {'banca': [self.fgv.id, self.cebraspe.id]}).context
@@ -132,7 +133,8 @@ class BuscaTextualTests(BaseSelecaoMultiplaTestCase):
     url = reverse('questoes:lista_questoes')
 
     def questoes(self, busca, **outros):
-        return set(self.client.get(self.url, {'busca': busca, **outros}).context['questoes'])
+        # Todas as questões filtradas (a página mostra só uma por vez)
+        return set(self.client.get(self.url, {'busca': busca, **outros}).context['pagina'].paginator.object_list)
 
     def test_campo_de_busca_vem_antes_dos_filtros(self):
         conteudo = self.client.get(self.url, {'busca': 'pregão'}).content.decode()
@@ -154,7 +156,7 @@ class BuscaTextualTests(BaseSelecaoMultiplaTestCase):
 
     def test_questao_com_varias_alternativas_iguais_aparece_uma_vez(self):
         resposta = self.client.get(self.url, {'busca': 'e'})
-        ids = [q.id for q in resposta.context['questoes']]
+        ids = [q.id for q in resposta.context['pagina'].paginator.object_list]
         self.assertEqual(len(ids), len(set(ids)))
 
     def test_busca_combina_com_os_filtros_e_restringe_a_cascata(self):

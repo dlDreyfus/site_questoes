@@ -22,7 +22,7 @@
 <p>Nenhuma questão encontrada.</p>
 {% endfor %}
 
-{% include 'questoes/_paginacao.html' %}
+{% include 'questoes/_paginacao.html' with rotulo='Questão' com_aleatorio=True %}
 {% endblock %}
 
 {% block extra_js %}

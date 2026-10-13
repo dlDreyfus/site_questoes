@@ -164,9 +164,15 @@
     </div>
     {% endif %}
 
+    {# Ordem aleatória ligada: a semente segue junto quando os filtros mudam (a ordem continua aleatória) #}
+    {% if aleatorio %}<input type="hidden" name="aleatorio" value="{{ aleatorio }}">{% endif %}
+
     <div class="filtro-grupo filtro-acoes">
         <!-- Só aparece se o JavaScript estiver desativado no navegador -->
         <noscript><button type="submit" class="btn-filtrar">Aplicar Filtros</button></noscript>
         <a href="{{ request.path }}" class="btn-limpar">Limpar</a>
+        {# "Aleatório" do novo simulado (a única tela sem paginação): cria o simulado já embaralhado. #}
+        {# Na lista e no simulado ele fica na paginação, ao lado do "Última" (ver _botao_aleatorio.html). #}
+        {% if aleatorio_nos_filtros %}{% include 'questoes/_botao_aleatorio.html' %}{% endif %}
     </div>
 </form>

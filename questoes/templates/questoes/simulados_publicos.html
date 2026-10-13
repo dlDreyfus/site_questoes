@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Simulados Públicos{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h2>Simulados públicos</h2>
+    <a href="{% url 'questoes:novo_simulado' %}" class="btn-desempenho">Novo simulado</a>
+</div>
+
+<p class="simulado-explicacao">
+    Simulados que os usuários compartilharam. Ao fazer um deles, ele entra nos seus simulados com as mesmas
+    questões, e as suas respostas ficam só com você.
+</p>
+
+{% if simulados %}
+<ul class="lista-simulados">
+    {% for simulado in simulados %}
+    <li class="simulado-card">
+        <div class="simulado-item">
+            <span class="simulado-nome">{{ simulado.nome }}</span>
+            <span class="simulado-info">{{ simulado.descricao }}</span>
+            <span class="simulado-autor">
+                Criado por <strong>{{ simulado.usuario.username }}</strong>{% if simulado.usuario_id == user.pk %} (você){% endif %}
+                em {{ simulado.criado_em|date:"d/m/Y" }}
+            </span>
+            <span class="simulado-progresso">
+                {{ simulado.qtd_questoes }} {% if simulado.qtd_questoes == 1 %}questão{% else %}questões{% endif %}
+                {% if simulado.qtd_copias %}· Feito por {{ simulado.qtd_copias }} {% if simulado.qtd_copias == 1 %}pessoa{% else %}pessoas{% endif %}{% endif %}
+            </span>
+        </div>
+        <div class="simulado-acoes">
+            {% if simulado.usuario_id == user.pk %}
+            <a href="{% url 'questoes:simulado_detalhe' simulado.id %}" class="btn-limpar" aria-label="Abrir o simulado {{ simulado.nome }}">Abrir</a>
+            {% elif simulado.copia_id %}
+            <a href="{% url 'questoes:simulado_detalhe' simulado.copia_id %}" class="btn-desempenho" aria-label="Continuar o simulado {{ simulado.nome }}">Continuar</a>
+            {% else %}
+            <form method="POST" action="{% url 'questoes:fazer_simulado' simulado.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-desempenho" aria-label="Fazer o simulado {{ simulado.nome }}">Fazer simulado</button>
+            </form>
+            {% endif %}
+        </div>
+    </li>
+    {% endfor %}
+</ul>
+
+{% include 'questoes/_paginacao.html' %}
+{% else %}
+<div class="dashboard-card">
+    <p>Nenhum simulado público por enquanto. Marque "Simulado público" ao criar ou editar um simulado para compartilhá-lo.</p>
+</div>
+{% endif %}
+{% endblock %}

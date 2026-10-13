@@ -27,6 +27,8 @@
             <nav class="topo-menu" aria-label="Menu do usuário">
                 <span class="topo-usuario" title="{{ user.username }}">Olá, {{ user.username }}</span>
                 <a href="{% url 'usuarios:dashboard' %}" class="btn-desempenho">Meu Desempenho</a>
+                <a href="{% url 'usuarios:dashboard' %}" class="btn-desempenho">Meus Simulados</a>
+                <a href="{% url 'questoes:simulados_publicos' %}" class="btn-desempenho">Simulados Públicos</a>
                 {# Só para quem tem a permissão de importar (superusuários e grupo "Administrador") #}
                 {% if perms.questoes.importar_questoes %}
                 <a href="{% url 'questoes:importar_questoes' %}" class="btn-limpar" title="Importar planilha .csv">Importar CSV</a>

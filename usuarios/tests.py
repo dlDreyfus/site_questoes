@@ -29,6 +29,27 @@ class LoginTests(TestCase):
         resposta = self.client.get(reverse('usuarios:login'))
         self.assertRedirects(resposta, reverse('questoes:lista_questoes'))
 
+    def test_tela_estilo_dos_mostra_o_total_de_questoes_antes_do_bons_estudos(self):
+        banca = Banca.objects.create(nome='Fundação Getulio Vargas', sigla='FGV')
+        orgao = Orgao.objects.create(nome='Tribunal de Contas da União', sigla='TCU')
+        cargo = Cargo.objects.create(nome='Auditor')
+        for ano in (2023, 2024):
+            Questao.objects.create(enunciado='Enunciado', ano=ano, banca=banca, orgao=orgao, cargo=cargo)
+        html = self.client.get(reverse('usuarios:login')).content.decode()
+        terminal = html[html.index('data-terminal>'):html.index('</p>', html.index('data-terminal>'))]
+        linhas = [
+            'Comente e curta as questões.', 'Interaja com a comunidade.', 'Temos 2 questões comentadas.',
+            'Cadastre-se, faça o Login e Bons estudos.',
+        ]
+        posicoes = [terminal.index(linha) for linha in linhas]
+        self.assertEqual(posicoes, sorted(posicoes))
+
+    def test_tela_estilo_dos_no_singular(self):
+        banca = Banca.objects.create(nome='Cebraspe', sigla='CEBRASPE')
+        orgao = Orgao.objects.create(nome='Tribunal de Contas da União', sigla='TCU')
+        Questao.objects.create(enunciado='E', ano=2024, banca=banca, orgao=orgao, cargo=Cargo.objects.create(nome='A'))
+        self.assertContains(self.client.get(reverse('usuarios:login')), 'Temos 1 questão comentada.', count=2)
+
     def test_logout(self):
         self.client.force_login(self.usuario)
         resposta = self.client.post(reverse('usuarios:logout'))

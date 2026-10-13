@@ -1,4 +1,7 @@
 {# Paginação: a tag querystring mantém os parâmetros da URL (ex: filtros) e troca só o número da página #}
+{# 'rotulo' (opcional) nomeia cada página, ex: rotulo='Questão' → "Questão 3 de 20"; o padrão é "Página" #}
+{# 'numero_questao' (ordem aleatória): o número da questão na ordem normal, no lugar do número da página #}
+{# 'com_aleatorio' (opcional): mostra o botão "Aleatório" ao lado do "Última" (ver _botao_aleatorio.html) #}
 {% if pagina.has_other_pages %}
 <nav class="paginacao" aria-label="Paginação">
     {% if pagina.has_previous %}
@@ -6,11 +9,13 @@
     <a href="{% querystring page=pagina.previous_page_number %}">Anterior</a>
     {% endif %}
 
-    <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+    <span class="paginacao-posicao">{{ rotulo|default:"Página" }} {% firstof numero_questao pagina.number %} de {{ pagina.paginator.num_pages }}</span>
 
     {% if pagina.has_next %}
     <a href="{% querystring page=pagina.next_page_number %}">Próxima</a>
     <a href="{% querystring page=pagina.paginator.num_pages %}">Última &raquo;</a>
     {% endif %}
+
+    {% if com_aleatorio %}{% include 'questoes/_botao_aleatorio.html' %}{% endif %}
 </nav>
 {% endif %}

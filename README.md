@@ -24,7 +24,17 @@ desempenho e discutir as questões com outros usuários.
   questões que atendem. Dentro do simulado cada questão é respondida uma vez, e o progresso e o
   resultado aparecem no simulado e na lista "Meus simulados" do Meu Desempenho. As respostas também
   entram nas estatísticas do painel. Cada simulado pode ser **renomeado** e **apagado** (com página
-  de confirmação); apagar mantém as respostas no desempenho do usuário.
+  de confirmação); apagar mantém as respostas no desempenho do usuário. O simulado guarda os filtros
+  usados na criação: o botão **"Atualizar questões"** acrescenta as questões cadastradas depois que os
+  atendem (nenhuma questão sai e as respostas continuam).
+- **Atualização de questões por planilha** (na página de importação, abaixo do envio de novas questões):
+  cada linha localiza a questão pelo `codigo` e altera só as células preenchidas (célula vazia mantém o
+  valor atual), com as mesmas validações e o mesmo "tudo ou nada" da importação. O tipo (ME/CE) não muda
+  e as alternativas são alteradas no lugar, preservando as respostas já dadas.
+- **Simulados públicos** (`/simulados/publicos/`, botão no cabeçalho de todas as páginas): ao criar ou
+  editar um simulado, o dono pode marcá-lo como **público**. Os outros usuários o veem nessa página e,
+  ao clicar em "Fazer simulado", recebem uma cópia própria com as mesmas questões (as respostas de cada
+  um ficam separadas). Fazer de novo leva à mesma cópia; apagar o original não apaga as cópias.
 - **Painel de desempenho** (`/usuarios/dashboard/`) com total de respostas e taxa de acerto,
   filtrável por banca, cargo, matéria e tópico.
 - **Fórum por questão**: comentários, respostas a comentários e curtidas; a resolução oficial

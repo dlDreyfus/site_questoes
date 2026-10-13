@@ -108,6 +108,9 @@ class QuestaoAdmin(admin.ModelAdmin):
     # Troca a caixa de seleção múltipla dos tópicos por duas listas com busca
     filter_horizontal = ('topicos',)
 
+    # Os votos de dificuldade são dos usuários, dados no site: não se editam aqui
+    exclude = ('avaliacoes_facil', 'avaliacoes_dificil')
+
     # Diz ao Django para colocar as alternativas dentro da tela da questão
     inlines = [AlternativaInline]
 
@@ -133,13 +136,13 @@ class ComentarioAdmin(admin.ModelAdmin):
 # fixo gerado pelo site. Apagar um simulado mantém as respostas no histórico do usuário.
 @admin.register(Simulado)
 class SimuladoAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'usuario', 'criado_em', 'total_questoes')
-    list_filter = ('criado_em',)
+    list_display = ('nome', 'usuario', 'publico', 'criado_em', 'total_questoes')
+    list_filter = ('publico', 'criado_em')
     search_fields = ('nome', 'usuario__username')
     list_select_related = ('usuario',)
     # Sem as questões: listar milhares delas numa linha só deixaria a tela pesada
-    fields = ('nome', 'usuario', 'descricao', 'criado_em')
-    readonly_fields = ('usuario', 'descricao', 'criado_em')
+    fields = ('nome', 'usuario', 'publico', 'origem', 'descricao', 'criado_em')
+    readonly_fields = ('usuario', 'origem', 'descricao', 'criado_em')
 
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(qtd_questoes=Count('questoes'))

@@ -21,16 +21,27 @@ urlpatterns = [
     path('resolucao/<int:resolucao_id>/curtir/', views.curtir_resolucao, name='curtir_resolucao'),
     # Descurte (👎) a resolução oficial ou, se já descurtida, desfaz. Só existe para a resolução.
     path('resolucao/<int:resolucao_id>/descurtir/', views.descurtir_resolucao, name='descurtir_resolucao'),
+    # Classificação da dificuldade da questão (POST; clicar de novo desfaz; um exclui o outro)
+    path('questao/<int:questao_id>/facil/', views.avaliar_facil, name='avaliar_facil'),
+    path('questao/<int:questao_id>/dificil/', views.avaliar_dificil, name='avaliar_dificil'),
     # Simulados: tela de criação (filtros em cascata + situação), o POST que cria e a tela de resolução.
     path('simulados/novo/', views.novo_simulado, name='novo_simulado'),
     path('simulados/criar/', views.criar_simulado, name='criar_simulado'),
+    # Simulados públicos de todos os usuários; "fazer" cria a cópia do usuário logado (POST)
+    path('simulados/publicos/', views.simulados_publicos, name='simulados_publicos'),
+    path('simulados/<int:simulado_id>/fazer/', views.fazer_simulado, name='fazer_simulado'),
     path('simulados/<int:simulado_id>/', views.simulado_detalhe, name='simulado_detalhe'),
+    # Liga/desliga a ordem aleatória das questões do simulado (POST).
+    path('simulados/<int:simulado_id>/aleatorio/', views.alternar_ordem_simulado, name='alternar_ordem_simulado'),
+    # Acrescenta as questões cadastradas depois da criação que atendem aos filtros do simulado (POST).
+    path('simulados/<int:simulado_id>/atualizar/', views.atualizar_simulado, name='atualizar_simulado'),
     # Renomear e apagar (o apagar pede confirmação antes: GET mostra a pergunta, POST apaga).
     path('simulados/<int:simulado_id>/editar/', views.editar_simulado, name='editar_simulado'),
     path('simulados/<int:simulado_id>/apagar/', views.apagar_simulado, name='apagar_simulado'),
     # Upload da planilha .csv de importação (restrito a quem tem a permissão importar_questoes).
     path('importar/', views.importar_questoes, name='importar_questoes'),
-    path('importar/modelo.csv', views.modelo_planilha, name='modelo_planilha'),
+    # Todas as questões do banco em .csv (mesmas colunas da importação)
+    path('importar/questoes.csv', views.exportar_questoes, name='exportar_questoes'),
     # Apagar uma questão (GET confirma, POST apaga); só superusuário e grupo "Administrador".
     path('questao/<int:questao_id>/apagar/', views.apagar_questao, name='apagar_questao'),
 # Fecha a lista de rotas.

@@ -157,6 +157,17 @@ select:focus-visible {
     background-color: var(--cor-hover);
 }
 
+/* "Aleatório" ligado: destacado na cor principal (clicar de novo volta à ordem normal) */
+.btn-aleatorio.ativo {
+    background-color: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+    color: #fff;
+}
+
+.btn-aleatorio.ativo:hover {
+    background-color: var(--cor-primaria-escura);
+}
+
 .btn-voltar {
     background-color: var(--cor-secundaria);
     color: #fff;
@@ -535,6 +546,15 @@ select:focus-visible {
     font-weight: 500;
 }
 
+/* Parágrafos do enunciado (separados por linha em branco no texto): só um pequeno espaço entre eles */
+.enunciado p {
+    margin: 0 0 8px;
+}
+
+.enunciado p:last-child {
+    margin-bottom: 0;
+}
+
 /* Cada alternativa é um "cartão" clicável: toque em qualquer parte dele marca o radio */
 .alternativa {
     display: flex;
@@ -590,12 +610,101 @@ select:focus-visible {
     margin: 4px 0 0;
 }
 
-/* Botões Curtir e Descurtir, lado a lado, abaixo do texto da resolução */
-.resolucao .votos {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 16px;
+/* Votos abaixo do texto da resolução, numa grade: Curtir sobre Fácil, Descurtir sobre Difícil e os
+   textos (acerto e dificuldade) na última coluna, começando exatamente um abaixo do outro. Cada linha
+   é um .votos (o grupo que o JavaScript atualiza junto); display: contents põe os itens dela direto na
+   grade. As colunas dos botões têm largura fixa: todos do mesmo tamanho, e trocar "Fácil" por "Achei
+   fácil" ao marcar não desloca nada. */
+.votos-grade {
+    display: grid;
+    grid-template-columns: repeat(2, 11rem) minmax(0, 1fr);
+    align-items: center;
+    gap: 8px 12px;
     margin-top: 10px;
+}
+
+.votos-grade .votos {
+    display: contents;
+}
+
+/* Posição fixa de cada item: assim, mesmo se um texto faltar, os botões não pulam de coluna */
+.votos-grade .form-curtir[data-tipo="curtir"],
+.votos-grade .form-curtir[data-tipo="facil"] {
+    grid-column: 1;
+}
+
+.votos-grade .form-curtir[data-tipo="descurtir"],
+.votos-grade .form-curtir[data-tipo="dificil"] {
+    grid-column: 2;
+}
+
+.votos-grade .acertos-questao,
+.votos-grade .dificuldade-questao {
+    grid-column: 3;
+}
+
+/* O botão ocupa a coluna inteira (descontado o total ao lado), com o conteúdo centralizado */
+.votos-grade .btn-curtir {
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+    /* Uma linha só: um rótulo quebrado deixaria esse botão mais alto que os outros */
+    white-space: nowrap;
+}
+
+.votos-grade .curtidas-total {
+    min-width: 2ch;
+}
+
+/* Celular: só cabem os botões lado a lado; cada texto vai para a linha de baixo, ocupando a largura */
+@media (max-width: 575.98px) {
+    .votos-grade {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .votos-grade .acertos-questao,
+    .votos-grade .dificuldade-questao {
+        grid-column: 1 / -1;
+    }
+}
+
+/* "62% acertaram (13 pessoas resolveram)" e "X% acharam fácil · Y% acharam difícil" */
+.acertos-questao,
+.dificuldade-questao {
+    font-size: 0.9rem;
+    color: var(--cor-texto);
+}
+
+.acertos-questao strong,
+.dificuldade-questao strong {
+    color: var(--cor-primaria);
+}
+
+.acertos-questao-base {
+    color: var(--cor-texto-suave);
+}
+
+/* Difícil: vermelho no hover e quando marcado, como o Descurtir; Fácil fica verde */
+.form-curtir[data-tipo="dificil"] .btn-curtir:hover {
+    border-color: var(--cor-perigo);
+    color: var(--cor-perigo);
+}
+
+.form-curtir[data-tipo="dificil"] .btn-curtir[aria-pressed="true"] {
+    border-color: var(--cor-perigo);
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+.form-curtir[data-tipo="facil"] .btn-curtir:hover {
+    border-color: var(--cor-sucesso);
+    color: #146c2e;
+}
+
+.form-curtir[data-tipo="facil"] .btn-curtir[aria-pressed="true"] {
+    border-color: var(--cor-sucesso);
+    background-color: #d1e7dd;
+    color: #146c2e;
 }
 
 /* No celular o botão Responder ocupa a largura toda (mais fácil de tocar) */
@@ -824,8 +933,18 @@ select:focus-visible {
     background-color: var(--cor-hover);
 }
 
+/* "Aleatório" ao lado do "Última": mesmo tamanho dos links da paginação */
+.paginacao .form-aleatorio {
+    margin: 0;
+}
+
+.paginacao .btn-aleatorio {
+    padding: 8px 14px;
+    font-weight: normal;
+}
+
 /* No celular, "Página X de Y" fica numa linha própria, acima dos botões */
-.paginacao span {
+.paginacao-posicao {
     order: -1;
     flex-basis: 100%;
     color: var(--cor-secundaria);
@@ -855,6 +974,45 @@ body.pagina-login {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     text-align: center;
     overflow-wrap: anywhere;
+}
+
+/* Tela estilo MS-DOS acima do "Acessar Simulado": texto verde em fundo preto, fonte monoespaçada.
+   A cópia invisível (.terminal-reserva) e o texto digitado ocupam a mesma célula da grade: a caixa já
+   nasce com a altura final e o formulário abaixo não se mexe durante a digitação. */
+.terminal-dos {
+    display: grid;
+    margin: 0 0 20px;
+    padding: 14px 16px;
+    background-color: #000;
+    border: 2px solid #333;
+    border-radius: var(--raio-pequeno);
+    color: #33ff33;
+    font-family: "Courier New", Consolas, "Lucida Console", monospace;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    text-align: left;
+    text-shadow: 0 0 4px rgba(51, 255, 51, 0.6);
+}
+
+.terminal-reserva,
+.terminal-texto {
+    grid-area: 1 / 1;
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.terminal-reserva {
+    visibility: hidden;
+}
+
+.terminal-cursor {
+    animation: terminal-piscar 1s steps(1) infinite;
+}
+
+@keyframes terminal-piscar {
+    50% {
+        opacity: 0;
+    }
 }
 
 .login-box form p {
@@ -956,6 +1114,30 @@ body.pagina-login {
 .painel-texto {
     margin: 0 0 16px;
     color: var(--cor-texto-suave);
+}
+
+/* Título do painel de importação, com a etiqueta "Somente novas questões" ao lado */
+.painel-titulo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+}
+
+.selo-importacao {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background-color: var(--cor-primaria);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+/* "Somente questões já cadastradas": cor diferente da etiqueta do envio de novas questões */
+.selo-atualizacao {
+    background-color: var(--cor-sucesso);
 }
 
 /* Formulário de upload do .csv */
@@ -1120,8 +1302,17 @@ body.pagina-login {
     gap: 8px;
 }
 
-.dashboard-acoes > a {
+.dashboard-acoes > a,
+.dashboard-acoes > form {
     flex: 1 1 auto;
+}
+
+/* Botão de formulário (POST) entre os links de ação: ocupa o espaço todo, como eles */
+.dashboard-acoes > form button {
+    width: 100%;
+    font: inherit;
+    font-weight: bold;
+    cursor: pointer;
 }
 
 .secao-titulo {
@@ -1218,6 +1409,7 @@ body.pagina-login {
 }
 
 .simulado-info,
+.simulado-autor,
 .simulado-progresso,
 .simulado-descricao {
     font-size: 0.9rem;
@@ -1247,6 +1439,38 @@ body.pagina-login {
 
 .form-simulado .btn-submit {
     margin-top: 0;
+}
+
+/* Caixa "Simulado público" (criação e edição): a caixa de marcação ao lado do texto e da explicação */
+.opcao-publico {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.opcao-publico input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin: 2px 0 0;
+    flex-shrink: 0;
+}
+
+.opcao-publico small {
+    display: block;
+    color: var(--cor-texto-suave);
+}
+
+/* Etiqueta "Público" ao lado do nome do simulado */
+.selo-publico {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background-color: var(--cor-sucesso);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: bold;
+    vertical-align: middle;
 }
 
 .simulado-vazio {
@@ -1361,12 +1585,13 @@ body.pagina-login {
         justify-content: space-between;
     }
 
-    .dashboard-acoes > a {
+    .dashboard-acoes > a,
+    .dashboard-acoes > form {
         flex: 0 0 auto;
     }
 
     /* "Página X de Y" volta para o meio dos botões */
-    .paginacao span {
+    .paginacao-posicao {
         order: 0;
         flex-basis: auto;
         padding: 0 8px;

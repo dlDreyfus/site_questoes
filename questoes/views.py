@@ -1,3 +1,5 @@
+import random
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
@@ -12,14 +14,14 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.views.decorators.http import require_http_methods, require_POST
 from .forms import ComentarioForm, ImportarCSVForm, SimuladoForm
-from .importacao import COLUNAS, gerar_modelo_csv, importar_csv
+from .importacao import COLUNAS, atualizar_csv, exportar_csv, importar_csv
 from .filtros import CAMPOS_SIMULADO, FiltrosQuestao, parse_int
 from .models import (
     COMENTARIO_TAMANHO_MAXIMO, Comentario, HistoricoResolucao, Questao, ResolucaoOficial, Simulado,
 )
 
-# Quantidade de questões exibidas por página
-QUESTOES_POR_PAGINA = 10
+# Quantidade de questões exibidas por página (lista e simulado mostram uma questão por vez)
+QUESTOES_POR_PAGINA = 1
 # Quantidade máxima de erros de importação listados na tela
 MAX_ERROS_EXIBIDOS = 100
 # Quantidade de questões por página na tabela de curtidas da tela de importação
@@ -34,6 +36,38 @@ def pode_gerenciar_questoes(usuario):
     return usuario.is_superuser or usuario.groups.filter(name=GRUPO_ADMINISTRADOR).exists()
 
 
+# --- Ordem aleatória ---------------------------------------------------------------------------------
+# A ordem aleatória é definida por uma semente (?aleatorio=<número> na URL, ou Simulado.semente): a mesma
+# semente embaralha as mesmas questões sempre do mesmo jeito, então "Próxima" segue a ordem sorteada.
+
+def _nova_semente():
+    return random.randint(1, 2**31 - 1)
+
+
+def _semente(params):
+    """Semente da ordem aleatória (parâmetro 'aleatorio'); ausente ou inválida = ordem normal."""
+    semente = parse_int(params.get('aleatorio'))
+    return semente if semente is not None and 0 < semente < 2**31 else None
+
+
+def _url(caminho, parametros):
+    """Caminho com os parâmetros ({campo: [valores]}); sem parâmetros, o endereço fica limpo, sem "?"."""
+    consulta = urlencode(parametros, doseq=True)
+    return caminho + (f'?{consulta}' if consulta else '')
+
+
+def _contexto_aleatorio(request, parametros, semente):
+    """Botão "Aleatório" de questoes/_filtros.html: liga a ordem aleatória (com uma semente nova) ou, se
+    já ligada, volta à ordem normal. Mantém os filtros e recomeça da primeira questão (sem a página)."""
+    parametros_do_botao = parametros if semente else {**parametros, 'aleatorio': [_nova_semente()]}
+    return {'aleatorio': semente, 'url_aleatorio': _url(request.path, parametros_do_botao)}
+
+
+def _com_aleatorio(parametros, semente):
+    """Os parâmetros dos filtros mais a semente da ordem aleatória, se ligada."""
+    return {**parametros, 'aleatorio': [semente]} if semente else parametros
+
+
 def _comentarios_com_curtidas(usuario):
     # Comentários com o autor, o total de curtidas e se o usuário logado já curtiu (tudo na mesma consulta).
     # order_by explícito: o Count gera GROUP BY, que ignora o Meta.ordering (a conversa sairia fora de ordem).
@@ -45,9 +79,26 @@ def _comentarios_com_curtidas(usuario):
     )
 
 
-def _contexto_das_questoes(request, questoes):
+def _acertos_da_questao(questao_id):
+    """Quantas pessoas já resolveram a questão e qual percentual delas acertou. Cada usuário conta uma
+    vez, pela PRIMEIRA resposta: as seguintes vêm depois de ver o gabarito e inflariam o acerto."""
+    primeira_resposta = HistoricoResolucao.objects.filter(
+        questao_id=questao_id, usuario=OuterRef('usuario'),
+    ).order_by('data_resposta', 'pk').values('pk')[:1]
+    resumo = HistoricoResolucao.objects.filter(
+        questao_id=questao_id, pk=Subquery(primeira_resposta),
+    ).aggregate(pessoas=Count('pk'), acertos=Count('pk', filter=Q(acertou=True)))
+    pessoas = resumo['pessoas']
+    return {
+        'pessoas': pessoas,
+        'percentual': round(resumo['acertos'] / pessoas * 100) if pessoas else 0,
+    }
+
+
+def _contexto_das_questoes(request, questoes, semente=None):
     """Prepara um queryset de Questao para exibição (páginas da lista de questões e do simulado):
-    fórum, paginação e resolução oficial. Devolve o contexto que questoes/_questao_card.html espera."""
+    fórum, paginação (na ordem normal ou, com 'semente', embaralhada) e resolução oficial. Devolve o
+    contexto que questoes/_questao_card.html espera."""
     # Fórum: total de comentários de cada questão e as conversas (comentários principais com suas
     # respostas), carregados em poucas consultas para a página inteira.
     # distinct=True: os filtros por tópico/matéria fazem JOIN e, sem ele, a contagem sairia duplicada.
@@ -67,7 +118,23 @@ def _contexto_das_questoes(request, questoes):
     )
 
     # 4. Paginação: get_page trata sozinho números de página inválidos ou fora do intervalo
-    pagina = Paginator(questoes, QUESTOES_POR_PAGINA).get_page(request.GET.get('page'))
+    # numero_questao: o número exibido em "Questão X de N" (vazio = o número da página)
+    numero_questao = None
+    if semente is None:
+        pagina = Paginator(questoes, QUESTOES_POR_PAGINA).get_page(request.GET.get('page'))
+    else:
+        # Ordem aleatória: embaralha os ids (partindo de uma ordem fixa, para a semente sempre dar o
+        # mesmo resultado), pagina os ids e só então busca as questões da página
+        ids = list(questoes.order_by('pk').values_list('pk', flat=True))
+        random.Random(semente).shuffle(ids)
+        pagina = Paginator(ids, QUESTOES_POR_PAGINA).get_page(request.GET.get('page'))
+        da_pagina = questoes.in_bulk(pagina.object_list)
+        pagina.object_list = [da_pagina[pk] for pk in pagina.object_list if pk in da_pagina]
+        # "Questão X de N" mostra o número da questão na ordem normal (e não a posição no sorteio):
+        # assim "Próxima" salta, por exemplo, da questão 11 para a 15
+        if pagina.object_list:
+            ordem_normal = list(questoes.values_list('pk', flat=True))
+            numero_questao = ordem_normal.index(pagina.object_list[0].pk) + 1
 
     # Resolução oficial: só a da questão que o usuário acabou de responder é exibida (antes de
     # responder, ela entregaria o gabarito). Vem com o total de curtidas e se o usuário já curtiu.
@@ -88,9 +155,15 @@ def _contexto_das_questoes(request, questoes):
             )
             .first()
         )
+        if resolucao_exibida is not None:
+            # Ao lado dos votos: percentual de acerto de todos os usuários que já resolveram a questão
+            resolucao_exibida.acertos_da_questao = _acertos_da_questao(questao_respondida)
+            # Abaixo do Curtir/Descurtir: botões Fácil/Difícil e o percentual de cada classificação
+            resolucao_exibida.dificuldade = _dificuldade_da_questao(resolucao_exibida.questao, request.user)
 
     return {
         'pagina': pagina,
+        'numero_questao': numero_questao,
         'questoes': pagina.object_list,
         # Subcabeçalho (base.html): total de questões da lista, contado pelo paginador
         'total_questoes': pagina.paginator.count,
@@ -115,17 +188,18 @@ def lista_questoes(request):
     filtros = FiltrosQuestao.da_requisicao(request.GET)
     questoes = filtros.aplicar(questoes)
 
-    # Botão "Novo simulado": abre a tela de criação já com os filtros que o usuário escolheu na lista
-    # (só os válidos, sem a página). Sem filtros, o endereço fica limpo, sem "?" sobrando.
-    parametros = urlencode(filtros.parametros(), doseq=True)
-    url_novo_simulado = reverse('questoes:novo_simulado') + (f'?{parametros}' if parametros else '')
+    # Ordem aleatória (botão "Aleatório" ao lado do "Limpar"); vale para os filtros aplicados
+    semente = _semente(request.GET)
 
     context = {
         # 4 e 5. Fórum, paginação e resolução exibida (compartilhados com o simulado)
-        **_contexto_das_questoes(request, questoes),
+        **_contexto_das_questoes(request, questoes, semente),
         # Opções dos dropdowns, valores selecionados e quantos filtros estão ativos
         **filtros.contexto(),
-        'url_novo_simulado': url_novo_simulado,
+        **_contexto_aleatorio(request, filtros.parametros(), semente),
+        # Botão "Novo simulado": abre a tela de criação já com os filtros que o usuário escolheu na lista
+        # (só os válidos, sem a página) e a ordem aleatória, se ligada
+        'url_novo_simulado': _url(reverse('questoes:novo_simulado'), _com_aleatorio(filtros.parametros(), semente)),
     }
 
     return render(request, 'questoes/lista_questoes.html', context)
@@ -141,14 +215,19 @@ NOME_SIMULADO_MAXIMO = Simulado._meta.get_field('nome').max_length
 def novo_simulado(request):
     """Tela de criação: os filtros (em cascata, mais a situação) e o botão que cria o simulado."""
     filtros = FiltrosQuestao.da_requisicao(request.GET, campos=CAMPOS_SIMULADO, usuario=request.user)
+    # Ordem aleatória: o simulado é criado já embaralhado (a semente vai junto no formulário)
+    semente = _semente(request.GET)
     context = {
         # Subcabeçalho (base.html): quantas questões o simulado teria com os filtros escolhidos
         'total_questoes': filtros.aplicar(Questao.objects.all()).count(),
         # Nesta tela os filtros são o assunto principal: o painel não começa recolhido no celular
         'filtros_abertos': True,
-        # Filtros escolhidos, reenviados junto com o formulário que cria o simulado
-        'filtros_parametros': filtros.parametros(CAMPOS_SIMULADO),
+        # Aqui não há paginação: o botão "Aleatório" fica junto dos filtros (ver questoes/_filtros.html)
+        'aleatorio_nos_filtros': True,
+        # Filtros escolhidos (e a ordem aleatória), reenviados junto com o formulário que cria o simulado
+        'filtros_parametros': _com_aleatorio(filtros.parametros(CAMPOS_SIMULADO), semente),
         **filtros.contexto(campos=CAMPOS_SIMULADO),
+        **_contexto_aleatorio(request, filtros.parametros(CAMPOS_SIMULADO), semente),
     }
     return render(request, 'questoes/novo_simulado.html', context)
 
@@ -159,16 +238,22 @@ def criar_simulado(request):
     # Relê os filtros no servidor (nada vem pronto do navegador) e congela as questões que os atendem
     filtros = FiltrosQuestao.da_requisicao(request.POST, campos=CAMPOS_SIMULADO, usuario=request.user)
     ids = list(filtros.aplicar(Questao.objects.order_by()).values_list('pk', flat=True))
+    semente = _semente(request.POST)
 
     if not ids:
         messages.warning(request, 'Nenhuma questão atende aos filtros escolhidos. Ajuste os filtros e tente de novo.')
-        parametros = urlencode(filtros.parametros(CAMPOS_SIMULADO), doseq=True)
-        return redirect(f"{reverse('questoes:novo_simulado')}?{parametros}")
+        parametros = _com_aleatorio(filtros.parametros(CAMPOS_SIMULADO), semente)
+        return redirect(_url(reverse('questoes:novo_simulado'), parametros))
 
     nome = request.POST.get('nome', '').strip()[:NOME_SIMULADO_MAXIMO]
     nome = nome or f'Simulado de {timezone.localtime():%d/%m/%Y %H:%M}'
     with transaction.atomic():
-        simulado = Simulado.objects.create(usuario=request.user, nome=nome, descricao=filtros.descricao())
+        simulado = Simulado.objects.create(
+            usuario=request.user, nome=nome, descricao=filtros.descricao(), semente=semente,
+            publico=bool(request.POST.get('publico')),
+            # Gravados para o "Atualizar questões" acrescentar depois as questões novas que os atendem
+            filtros=filtros.parametros(CAMPOS_SIMULADO),
+        )
         simulado.questoes.set(ids)
     return redirect('questoes:simulado_detalhe', simulado_id=simulado.pk)
 
@@ -176,7 +261,9 @@ def criar_simulado(request):
 @login_required
 def simulado_detalhe(request, simulado_id):
     # Só o dono acessa o simulado (de outro usuário, a resposta é 404, como se ele não existisse)
-    simulado = get_object_or_404(Simulado, pk=simulado_id, usuario=request.user)
+    simulado = get_object_or_404(
+        Simulado.objects.select_related('origem__usuario'), pk=simulado_id, usuario=request.user,
+    )
 
     # A resposta do usuário a cada questão DESTE simulado: define se ela aparece para responder ou já respondida
     respostas = simulado.resolucoes.filter(questao=OuterRef('pk'))
@@ -184,9 +271,9 @@ def simulado_detalhe(request, simulado_id):
         resultado=Subquery(respostas.values('acertou')[:1]),
         alternativa_marcada=Subquery(respostas.values('alternativa_escolhida_id')[:1]),
     )
-    contexto = _contexto_das_questoes(request, questoes)
+    contexto = _contexto_das_questoes(request, questoes, simulado.semente)
 
-    resumo = simulado.resolucoes.aggregate(respondidas=Count('id'), acertos=Count('id', filter=Q(acertou=True)))
+    resumo =simulado.resolucoes.aggregate(respondidas=Count('id'), acertos=Count('id', filter=Q(acertou=True)))
     total = contexto['pagina'].paginator.count
     context = {
         **contexto,
@@ -204,16 +291,59 @@ def simulado_detalhe(request, simulado_id):
 
 
 @login_required
+@require_POST
+def alternar_ordem_simulado(request, simulado_id):
+    """Botão "Aleatório" do simulado: embaralha as questões (com uma semente nova) ou, se já estão
+    embaralhadas, volta à ordem normal. As respostas dadas no simulado não mudam."""
+    simulado = get_object_or_404(Simulado, pk=simulado_id, usuario=request.user)
+    simulado.semente = None if simulado.semente else _nova_semente()
+    simulado.save(update_fields=['semente'])
+    if simulado.semente:
+        messages.success(request, 'Questões em ordem aleatória.')
+    else:
+        messages.success(request, 'Questões de volta à ordem normal.')
+    # Recomeça da primeira questão da nova ordem
+    return redirect('questoes:simulado_detalhe', simulado_id=simulado.pk)
+
+
+@login_required
+@require_POST
+def atualizar_simulado(request, simulado_id):
+    """Botão "Atualizar questões": aplica de novo os filtros gravados na criação e acrescenta as questões
+    cadastradas depois que os atendem. Nenhuma questão sai do simulado e as respostas dadas continuam."""
+    simulado = get_object_or_404(Simulado, pk=simulado_id, usuario=request.user)
+    if simulado.filtros is None:
+        messages.warning(
+            request, 'Este simulado foi criado antes de os filtros serem gravados e não pode ser atualizado. '
+                     'Crie um novo simulado com os mesmos filtros para incluir as questões novas.',
+        )
+        return redirect('questoes:simulado_detalhe', simulado_id=simulado.pk)
+
+    # A situação ("que errei", "ainda não resolvi") é avaliada agora, com o histórico atual do usuário
+    filtros = FiltrosQuestao.da_requisicao(simulado.filtros, campos=CAMPOS_SIMULADO, usuario=request.user)
+    novas = list(
+        filtros.aplicar(Questao.objects.order_by()).exclude(simulados=simulado).values_list('pk', flat=True)
+    )
+    if novas:
+        simulado.questoes.add(*novas)
+        texto = '1 questão nova foi incluída' if len(novas) == 1 else f'{len(novas)} questões novas foram incluídas'
+        messages.success(request, f'{texto} no simulado.')
+    else:
+        messages.info(request, 'Nenhuma questão nova atende aos filtros deste simulado.')
+    return redirect('questoes:simulado_detalhe', simulado_id=simulado.pk)
+
+
+@login_required
 @require_http_methods(['GET', 'POST'])
 def editar_simulado(request, simulado_id):
-    """Renomeia o simulado. As questões e as respostas dadas nele não mudam."""
+    """Renomeia o simulado e o torna público ou privado. As questões e as respostas dadas nele não mudam."""
     simulado = get_object_or_404(Simulado, pk=simulado_id, usuario=request.user)
     # O formulário altera o objeto ao validar: guarda o nome atual para o título da página não mostrar um nome inválido
     nome_atual = simulado.nome
     form = SimuladoForm(request.POST or None, instance=simulado)
     if request.method == 'POST' and form.is_valid():
         form.save()
-        messages.success(request, 'Nome do simulado atualizado.')
+        messages.success(request, 'Simulado atualizado.')
         return redirect('questoes:simulado_detalhe', simulado_id=simulado.pk)
     return render(request, 'questoes/editar_simulado.html', {'form': form, 'simulado': simulado, 'nome_atual': nome_atual})
 
@@ -233,6 +363,51 @@ def apagar_simulado(request, simulado_id):
         'simulado': simulado,
         'respondidas': simulado.resolucoes.count(),
     })
+
+
+# Quantidade de simulados por página em "Simulados públicos"
+SIMULADOS_POR_PAGINA = 20
+
+
+@login_required
+def simulados_publicos(request):
+    """Simulados que os usuários marcaram como públicos (de todos, inclusive os do próprio usuário)."""
+    # A cópia que o usuário já fez de cada simulado (se fez): o botão vira "Continuar" e leva até ela
+    copia_do_usuario = Simulado.objects.filter(origem=OuterRef('pk'), usuario=request.user).order_by('-pk')
+    # distinct=True: os dois Count juntos multiplicariam as linhas do JOIN. order_by explícito: o Count
+    # gera GROUP BY, que ignora o Meta.ordering (os mais recentes precisam vir primeiro).
+    simulados = (
+        Simulado.objects.filter(publico=True).select_related('usuario')
+        .annotate(
+            qtd_questoes=Count('questoes', distinct=True),
+            qtd_copias=Count('copias', distinct=True),
+            copia_id=Subquery(copia_do_usuario.values('pk')[:1]),
+        )
+        .order_by(*Simulado._meta.ordering)
+    )
+    pagina = Paginator(simulados, SIMULADOS_POR_PAGINA).get_page(request.GET.get('page'))
+    return render(request, 'questoes/simulados_publicos.html', {'pagina': pagina, 'simulados': pagina.object_list})
+
+
+@login_required
+@require_POST
+def fazer_simulado(request, simulado_id):
+    """Faz um simulado público de outro usuário: cria uma cópia privada (mesmas questões e ordem) onde as
+    respostas são só de quem a fez. Se o usuário já tem uma cópia, volta para ela."""
+    original = get_object_or_404(Simulado, pk=simulado_id, publico=True)
+    if original.usuario_id == request.user.pk:
+        return redirect('questoes:simulado_detalhe', simulado_id=original.pk)
+
+    copia = request.user.simulados.filter(origem=original).order_by('-pk').first()
+    if copia is None:
+        with transaction.atomic():
+            copia = Simulado.objects.create(
+                usuario=request.user, nome=original.nome, descricao=original.descricao,
+                semente=original.semente, origem=original, filtros=original.filtros,
+            )
+            copia.questoes.set(original.questoes.all())
+        messages.success(request, f'O simulado "{copia.nome}" foi adicionado aos seus simulados.')
+    return redirect('questoes:simulado_detalhe', simulado_id=copia.pk)
 
 
 # Publica um comentário (ou uma resposta) no fórum da questão
@@ -274,29 +449,39 @@ def comentar_questao(request, questao_id):
     return redirect(f'{destino}#{ancora}')
 
 
-def _alternar_curtida(request, objeto, ancora, manter_aberto, campo='curtidas', oposto=None):
+# Votos que a resposta JSON informa ao JavaScript: (campo do model, chave do "já votou"). O total vai
+# em total_<campo>. Curtir/descurtir (comentários e resolução) e fácil/difícil (questão).
+VOTOS_CURTIDA = (('curtidas', 'curtido'), ('descurtidas', 'descurtido'))
+VOTOS_DIFICULDADE = (('avaliacoes_facil', 'facil'), ('avaliacoes_dificil', 'dificil'))
+
+
+def _alternar_curtida(request, objeto, ancora, manter_aberto, campo='curtidas', oposto=None,
+                      votos=VOTOS_CURTIDA, extra=None):
     # Alterna o voto do usuário: clicar marca; clicar de novo desmarca.
     # campo = 'curtidas' (👍) ou 'descurtidas' (👎, só na resolução). oposto = o outro campo, se houver:
     # marcar um tira o usuário do outro (ninguém curte e descurte a mesma resolução ao mesmo tempo).
+    # extra = função que devolve mais dados para o JSON (ex: os percentuais de fácil/difícil).
     # Com JavaScript (static/js/forum.js) a resposta é JSON e a página não recarrega; sem JavaScript,
     # o formulário é enviado normalmente e a página volta para o item.
     # manter_aberto = (chave da sessão, id da questão): o que precisa continuar visível após recarregar.
-    votos = getattr(objeto, campo)
-    if votos.filter(pk=request.user.pk).exists():
-        votos.remove(request.user)
+    marcados = getattr(objeto, campo)
+    if marcados.filter(pk=request.user.pk).exists():
+        marcados.remove(request.user)
     else:
-        votos.add(request.user)
+        marcados.add(request.user)
         if oposto:
             getattr(objeto, oposto).remove(request.user)
 
     if request.headers.get('Accept', '').startswith('application/json'):
         # Devolve o estado de todos os votos do objeto, para o JavaScript atualizar os dois botões
         estado = {}
-        for nome, chave in (('curtidas', 'curtido'), ('descurtidas', 'descurtido')):
+        for nome, chave in votos:
             if hasattr(objeto, nome):
                 relacao = getattr(objeto, nome)
                 estado[chave] = relacao.filter(pk=request.user.pk).exists()
                 estado[f'total_{nome}'] = relacao.count()
+        if extra:
+            estado.update(extra())
         return JsonResponse(estado)
 
     chave, questao_id = manter_aberto
@@ -336,6 +521,54 @@ def _votar_resolucao(request, resolucao_id, campo, oposto):
         request, resolucao, f'resolucao-{resolucao.id}', ('questao_respondida', resolucao.questao_id),
         campo=campo, oposto=oposto,
     )
+
+
+@login_required
+@require_POST
+def avaliar_facil(request, questao_id):
+    return _avaliar_dificuldade(request, questao_id, campo='avaliacoes_facil', oposto='avaliacoes_dificil')
+
+
+@login_required
+@require_POST
+def avaliar_dificil(request, questao_id):
+    return _avaliar_dificuldade(request, questao_id, campo='avaliacoes_dificil', oposto='avaliacoes_facil')
+
+
+def _avaliar_dificuldade(request, questao_id, campo, oposto):
+    questao = get_object_or_404(Questao, pk=questao_id)
+    # Só quem já resolveu a questão a classifica (os botões só aparecem depois de responder)
+    if not request.user.historico.filter(questao=questao).exists():
+        raise PermissionDenied('Responda a questão antes de classificar a dificuldade.')
+    # Sem JavaScript a página recarrega: a resolução desta questão (onde ficam os botões) continua visível
+    return _alternar_curtida(
+        request, questao, f'dificuldade-{questao.id}', ('questao_respondida', questao.id),
+        campo=campo, oposto=oposto, votos=VOTOS_DIFICULDADE,
+        extra=lambda: _dificuldade_da_questao(questao),
+    )
+
+
+def _dificuldade_da_questao(questao, usuario=None):
+    """Quantas pessoas classificaram a questão e o percentual de "Fácil" e de "Difícil" entre elas.
+    Com 'usuario', informa também o voto dele (para marcar o botão)."""
+    faceis = questao.avaliacoes_facil.count()
+    dificeis = questao.avaliacoes_dificil.count()
+    total = faceis + dificeis
+    # O difícil é o complemento: os dois percentuais sempre somam 100%
+    percentual_facil = round(faceis / total * 100) if total else 0
+    dados = {
+        'total_avaliacoes': total,
+        'percentual_facil': percentual_facil,
+        'percentual_dificil': 100 - percentual_facil if total else 0,
+    }
+    if usuario is not None:
+        dados.update({
+            'facil': questao.avaliacoes_facil.filter(pk=usuario.pk).exists(),
+            'dificil': questao.avaliacoes_dificil.filter(pk=usuario.pk).exists(),
+            'total_avaliacoes_facil': faceis,
+            'total_avaliacoes_dificil': dificeis,
+        })
+    return dados
 
 
 # Recebe a alternativa marcada no formulário, grava a tentativa no histórico e informa se o usuário acertou
@@ -398,22 +631,32 @@ def responder_questao(request, questao_id):
 @login_required
 @permission_required('questoes.importar_questoes', raise_exception=True)
 def importar_questoes(request):
+    # Dois formulários na mesma página: envio de questões novas e atualização das existentes pelo código.
+    # O prefixo separa os campos da atualização ("atualizacao-arquivo"), e o campo 'acao' diz qual foi enviado.
     erros = []
+    operacao = None  # 'novas' ou 'atualizacao': qual envio falhou (título da caixa de erros)
+    form = ImportarCSVForm()
+    form_atualizacao = ImportarCSVForm(prefix='atualizacao')
     if request.method == 'POST':
+        operacao = 'atualizacao' if request.POST.get('acao') == 'atualizacao' else 'novas'
         # request.FILES traz o arquivo enviado (o form do template precisa de enctype multipart)
-        form = ImportarCSVForm(request.POST, request.FILES)
-        if form.is_valid():
-            arquivo = form.cleaned_data['arquivo']
+        if operacao == 'atualizacao':
+            enviado = form_atualizacao = ImportarCSVForm(request.POST, request.FILES, prefix='atualizacao')
+        else:
+            enviado = form = ImportarCSVForm(request.POST, request.FILES)
+        if enviado.is_valid():
+            arquivo = enviado.cleaned_data['arquivo']
             # Tudo ou nada: se houver qualquer erro, nenhum registro é gravado (ver questoes/importacao.py)
-            resultado = importar_csv(arquivo)
+            resultado = atualizar_csv(arquivo) if operacao == 'atualizacao' else importar_csv(arquivo)
             if resultado.sucesso:
                 resumo = ', '.join(f'{quantidade} {tabela.lower()}' for tabela, quantidade in resultado.criados.items()
                                    if quantidade)
-                messages.success(request, f'Planilha "{arquivo.name}" importada com sucesso. Criados: {resumo}.')
+                if operacao == 'atualizacao':
+                    messages.success(request, f'Planilha "{arquivo.name}" aplicada com sucesso: {resumo}.')
+                else:
+                    messages.success(request, f'Planilha "{arquivo.name}" importada com sucesso. Criados: {resumo}.')
                 return redirect('questoes:importar_questoes')
             erros = resultado.erros
-    else:
-        form = ImportarCSVForm()
 
     # Tabela de questões com os votos da resolução oficial e quantas vezes cada uma foi respondida.
     # Ordem: mais descurtidas, depois mais respondidas, depois mais curtidas, depois o código em ordem
@@ -438,6 +681,8 @@ def importar_questoes(request):
 
     context = {
         'form': form,
+        'form_atualizacao': form_atualizacao,
+        'operacao': operacao,
         'colunas': COLUNAS,
         # Muitos erros (ex: planilha inteira no formato errado) poluem a tela: mostra os primeiros
         'erros': erros[:MAX_ERROS_EXIBIDOS],
@@ -452,13 +697,13 @@ def importar_questoes(request):
     return render(request, 'questoes/importar_questoes.html', context)
 
 
-# Download do modelo de planilha (cabeçalho + uma questão ME e uma CE de exemplo)
+# Botão "Baixar csv": todas as questões do banco, com as mesmas colunas da importação
 @login_required
 @permission_required('questoes.importar_questoes', raise_exception=True)
-def modelo_planilha(request):
-    resposta = HttpResponse(gerar_modelo_csv(), content_type='text/csv; charset=utf-8')
-    # attachment: o navegador baixa o arquivo em vez de abrir na tela
-    resposta['Content-Disposition'] = 'attachment; filename="modelo_importacao_questoes.csv"'
+def exportar_questoes(request):
+    resposta = HttpResponse(exportar_csv(), content_type='text/csv; charset=utf-8')
+    # attachment: o navegador baixa o arquivo em vez de abrir na tela (o nome leva a data do download)
+    resposta['Content-Disposition'] = f'attachment; filename="questoes_{timezone.localdate():%Y-%m-%d}.csv"'
     return resposta
 
 

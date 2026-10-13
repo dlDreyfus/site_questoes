@@ -8,14 +8,22 @@ Regras (decididas com o usuário):
   qualquer erro, nada é gravado e cada erro é apontado com linha, coluna e motivo.
 - Um "codigo" que já existe no banco (ou repetido na planilha) é erro.
 
+Atualização de questões existentes (atualizar_csv), com as mesmas colunas e validações:
+- A questão é localizada pelo "codigo" (obrigatório e já cadastrado; não pode repetir na planilha).
+- Só as células preenchidas são alteradas: célula vazia = mantém o valor atual.
+- O tipo (ME/CE) não muda e nada é apagado: as alternativas são alteradas no lugar (as respostas já
+  dadas continuam ligadas a elas), e alternativas novas podem ser acrescentadas no fim.
+
 A numeração das linhas é a mesma do Excel: o cabeçalho é a linha 1.
 """
 import csv
 import io
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from datetime import date
 
 from django.db import DatabaseError, transaction
+from django.db.models import F
 
 from .models import Alternativa, Banca, Cargo, Materia, Orgao, Questao, ResolucaoOficial, Topico
 
@@ -48,7 +56,7 @@ COLUNAS = [
     Coluna('materia', 'Sim', 'Matéria (disciplina)', 'Direito Administrativo', 100),
     Coluna('topicos', 'Sim', f'Um ou mais tópicos da matéria, separados por "{SEPARADOR_TOPICOS}"',
            'Licitações|Contratos', 150),
-    Coluna('enunciado', 'Sim', 'Texto da questão', 'De acordo com a Lei nº 14.133/2021...'),
+    Coluna('enunciado', 'Sim', 'Texto da questão (uma linha em branco separa parágrafos, ex: a identificação no topo)', 'De acordo com a Lei nº 14.133/2021...'),
     Coluna('alternativa_a', 'Só ME', 'Alternativa A (em questões CE, deixe vazia)', 'convite'),
     Coluna('alternativa_b', 'Só ME', 'Alternativa B', 'tomada de preços'),
     Coluna('alternativa_c', 'Não', 'Alternativa C (as alternativas não podem pular letras)', 'diálogo competitivo'),
@@ -109,14 +117,47 @@ class ResultadoImportacao:
         return not self.erros
 
 
-def gerar_modelo_csv():
-    """Conteúdo do modelo de planilha: cabeçalho + linhas de exemplo, pronto para o Excel."""
+def exportar_csv():
+    """Todas as questões do banco num .csv com as mesmas colunas da importação (pronto para o Excel).
+    O arquivo serve de referência do formato e de base para a planilha de atualização (pelo código)."""
+    questoes = (
+        Questao.objects.select_related('banca', 'orgao', 'cargo', 'resolucao')
+        .prefetch_related('alternativas', 'topicos__materia')
+        .order_by(F('codigo').asc(nulls_last=True), 'pk')
+    )
     saida = io.StringIO()
     escritor = csv.DictWriter(saida, fieldnames=[c.nome for c in COLUNAS], delimiter=';', lineterminator='\r\n')
     escritor.writeheader()
-    escritor.writerows(LINHAS_EXEMPLO)
+    escritor.writerows(_linha_da_questao(questao) for questao in questoes)
     # O BOM (﻿) avisa o Excel que o arquivo é UTF-8; sem ele os acentos aparecem trocados
     return '﻿' + saida.getvalue()
+
+
+def _linha_da_questao(questao):
+    """Uma questão como linha da planilha, no mesmo formato que a importação aceita."""
+    topicos = sorted(questao.topicos.all(), key=lambda topico: (topico.materia.nome, topico.nome))
+    alternativas = list(questao.alternativas.all())
+    linha = {
+        'codigo': questao.codigo or '',
+        # Banca sem sigla (cadastrada pelo admin): o nome faz o papel da sigla
+        'banca_sigla': questao.banca.sigla or questao.banca.nome, 'banca_nome': questao.banca.nome,
+        'orgao_sigla': questao.orgao.sigla, 'orgao_nome': questao.orgao.nome, 'cargo': questao.cargo.nome,
+        'ano': questao.ano, 'tipo': questao.tipo,
+        # A planilha tem uma matéria por questão: vale a do primeiro tópico (em ordem alfabética)
+        'materia': topicos[0].materia.nome if topicos else '',
+        'topicos': SEPARADOR_TOPICOS.join(topico.nome for topico in topicos),
+        'enunciado': questao.enunciado,
+        'resolucao': getattr(questao, 'resolucao', None) and questao.resolucao.texto or '',
+    }
+    correta = next((i for i, alternativa in enumerate(alternativas) if alternativa.is_correta), None)
+    if questao.tipo == Questao.TipoQuestao.CERTO_ERRADO:
+        # Em CE as alternativas (Certo e Errado) não vão na planilha: só o gabarito
+        linha['gabarito'] = 'CERTO' if correta == 0 else 'ERRADO' if correta is not None else ''
+    else:
+        for letra, alternativa in zip(LETRAS, alternativas):
+            linha[f'alternativa_{letra.lower()}'] = alternativa.texto
+        linha['gabarito'] = LETRAS[correta] if correta is not None and correta < len(LETRAS) else ''
+    return linha
 
 
 def importar_csv(arquivo):
@@ -140,7 +181,27 @@ def importar_csv(arquivo):
     return ResultadoImportacao(criados=criados)
 
 
-def _ler_csv(arquivo):
+def atualizar_csv(arquivo):
+    """Atualiza questões existentes pelo código. Tudo ou nada, como a importação de questões novas."""
+    try:
+        linhas = _ler_csv(arquivo, obrigatorias=['codigo'])
+    except ErroArquivo as erro:
+        return ResultadoImportacao(erros=[str(erro)])
+
+    validador = _ValidadorAtualizacao({linha.get('codigo', '') for _, linha in linhas})
+    planos = [plano for numero, linha in linhas if (plano := validador.validar(numero, linha))]
+    if validador.erros:
+        return ResultadoImportacao(erros=validador.erros)
+
+    try:
+        with transaction.atomic():
+            alterados = _GravadorAtualizacao(validador).gravar(planos)
+    except DatabaseError as erro:
+        return ResultadoImportacao(erros=[f'Erro ao gravar no banco de dados ({erro}). Nenhum registro foi alterado.'])
+    return ResultadoImportacao(criados=alterados)
+
+
+def _ler_csv(arquivo, obrigatorias=COLUNAS_OBRIGATORIAS_NO_CABECALHO):
     """Devolve [(número da linha no Excel, {coluna: valor}), ...] ou levanta ErroArquivo."""
     conteudo = arquivo.read()
     # "CSV UTF-8" do Excel vem com BOM (utf-8-sig); o "CSV (separado por vírgulas)" vem em cp1252
@@ -170,7 +231,7 @@ def _ler_csv(arquivo):
         raise ErroArquivo('O arquivo está vazio.')
 
     cabecalho = [nome.strip().lower() for nome in registros[0]]
-    _validar_cabecalho(cabecalho)
+    _validar_cabecalho(cabecalho, obrigatorias)
 
     linhas = []
     # enumerate a partir de 2: o cabeçalho é a linha 1 no Excel
@@ -191,9 +252,9 @@ def _ler_csv(arquivo):
     return linhas
 
 
-def _validar_cabecalho(cabecalho):
+def _validar_cabecalho(cabecalho, obrigatorias=COLUNAS_OBRIGATORIAS_NO_CABECALHO):
     problemas = []
-    faltando = [nome for nome in COLUNAS_OBRIGATORIAS_NO_CABECALHO if nome not in cabecalho]
+    faltando = [nome for nome in obrigatorias if nome not in cabecalho]
     if faltando:
         problemas.append('faltam as colunas ' + ', '.join(f'"{nome}"' for nome in faltando))
     desconhecidas = [nome for nome in cabecalho if nome and nome not in COLUNAS_POR_NOME]
@@ -458,3 +519,154 @@ class _Gravador:
             topico = self.v.topicos[chave] = Topico.objects.create(materia=materia, nome=nome)
             self.criados['Tópicos'] += 1
         return topico
+
+
+class _ValidadorAtualizacao(_Validador):
+    """Valida a planilha de atualização: cada linha localiza a questão pelo código e só as colunas
+    preenchidas são conferidas (com as mesmas regras da importação de questões novas)."""
+
+    def __init__(self, codigos):
+        super().__init__()
+        # Só as questões citadas na planilha, já com as alternativas (na ordem A, B, C...)
+        self.questoes = {
+            questao.codigo: questao
+            for questao in Questao.objects.filter(codigo__in=[c for c in codigos if c]).prefetch_related('alternativas')
+        }
+
+    def validar(self, numero, linha):
+        if '__erro__' in linha:
+            self.erro(numero, None, linha['__erro__'])
+            return None
+
+        erros_antes = len(self.erros)
+        valor = lambda coluna: linha.get(coluna, '')  # noqa: E731 — colunas opcionais podem faltar
+
+        codigo = valor('codigo')
+        questao = self.questoes.get(codigo)
+        if not codigo:
+            self.erro(numero, 'codigo', 'preenchimento obrigatório (é o código que indica a questão a atualizar).')
+        elif codigo in self.codigos_na_planilha:
+            self.erro(numero, 'codigo', f'"{codigo}" repetido (já usado na linha {self.codigos_na_planilha[codigo]}).')
+            questao = None
+        elif questao is None:
+            self.erro(numero, 'codigo', f'a questão "{codigo}" não existe no banco de dados (para cadastrá-la, '
+                                        'use o envio de novas questões).')
+        else:
+            self.codigos_na_planilha[codigo] = numero
+
+        for nome, coluna in COLUNAS_POR_NOME.items():
+            if coluna.tamanho_maximo and len(valor(nome)) > coluna.tamanho_maximo:
+                self.erro(numero, nome, f'tem {len(valor(nome))} caracteres; o máximo é {coluna.tamanho_maximo}.')
+        if questao is None:
+            return None
+
+        preenchidas = {coluna for coluna in COLUNAS_POR_NOME if coluna != 'codigo' and valor(coluna)}
+        if not preenchidas:
+            self.erro(numero, None, 'nada a atualizar: preencha ao menos uma coluna além do código '
+                                    '(as colunas vazias mantêm o valor atual).')
+            return None
+
+        # Colunas que só fazem sentido juntas
+        if valor('banca_nome') and not valor('banca_sigla'):
+            self.erro(numero, 'banca_sigla', 'preencha também a sigla da banca (o nome sozinho não identifica a banca).')
+        for coluna, outra in (('orgao_sigla', 'orgao_nome'), ('orgao_nome', 'orgao_sigla'),
+                              ('materia', 'topicos'), ('topicos', 'materia')):
+            if valor(coluna) and not valor(outra):
+                self.erro(numero, outra, f'preencha também esta coluna para alterar "{coluna}" '
+                                         '(as duas são atualizadas juntas).')
+
+        tipo = valor('tipo').upper()
+        if tipo and tipo not in Questao.TipoQuestao.values:
+            self.erro(numero, 'tipo', f'valor "{valor("tipo")}" inválido; use ME ou CE.')
+        elif tipo and tipo != questao.tipo:
+            self.erro(numero, 'tipo', f'não é possível mudar o tipo de uma questão já cadastrada (ela é '
+                                      f'{questao.tipo}). Deixe a coluna vazia ou igual ao tipo atual.')
+
+        ano = self._validar_ano(numero, valor('ano'))
+        self._validar_banca(numero, valor('banca_sigla'), valor('banca_nome'))
+        self._validar_orgao(numero, valor('orgao_sigla'), valor('orgao_nome'))
+        topicos = self._validar_topicos(numero, valor('topicos'))
+        alternativas = self._validar_alternativas_mescladas(numero, questao, linha)
+
+        if len(self.erros) > erros_antes:
+            return None
+        return SimpleNamespace(
+            questao=questao, ano=ano, banca_sigla=valor('banca_sigla'), banca_nome=valor('banca_nome'),
+            orgao_sigla=valor('orgao_sigla'), orgao_nome=valor('orgao_nome'), cargo=valor('cargo'),
+            materia=valor('materia'), topicos=topicos, enunciado=valor('enunciado'),
+            alternativas=alternativas, resolucao=valor('resolucao'),
+        )
+
+    def _validar_alternativas_mescladas(self, numero, questao, linha):
+        """Alternativas e gabarito: as células vazias mantêm o que já está cadastrado. O resultado
+        (atual + alterações) passa pelas mesmas regras da importação. None = nada a alterar."""
+        colunas = [f'alternativa_{letra.lower()}' for letra in LETRAS]
+        if not any(linha.get(coluna) for coluna in colunas + ['gabarito']):
+            return None
+        atuais = list(questao.alternativas.all())
+
+        if questao.tipo == Questao.TipoQuestao.CERTO_ERRADO:
+            # Em CE as alternativas (Certo e Errado) são fixas: só o gabarito muda
+            certo_atual = bool(atuais) and atuais[0].is_correta
+            gabarito = linha.get('gabarito') or ('CERTO' if certo_atual else 'ERRADO')
+            return self._validar_alternativas(numero, questao.tipo, linha, gabarito)
+
+        letra_correta = next((LETRAS[i] for i, alt in enumerate(atuais[:len(LETRAS)]) if alt.is_correta), '')
+        mesclada = {
+            coluna: linha.get(coluna) or (atuais[i].texto if i < len(atuais) else '')
+            for i, coluna in enumerate(colunas)
+        }
+        return self._validar_alternativas(numero, questao.tipo, mesclada, linha.get('gabarito') or letra_correta)
+
+
+class _GravadorAtualizacao(_Gravador):
+    """Grava as alterações validadas, reaproveitando ou criando bancas, órgãos, cargos, matérias e tópicos."""
+
+    def __init__(self, validador):
+        super().__init__(validador)
+        self.criados = {
+            'Questões atualizadas': 0, 'Alternativas novas': 0, 'Resoluções novas': 0, 'Bancas': 0, 'Órgãos': 0,
+            'Cargos': 0, 'Matérias': 0, 'Tópicos': 0,
+        }
+
+    def gravar(self, planos):
+        for plano in planos:
+            questao = plano.questao
+            if plano.ano is not None:
+                questao.ano = plano.ano
+            if plano.enunciado:
+                questao.enunciado = plano.enunciado
+            if plano.banca_sigla:
+                questao.banca = self._banca(plano)
+            if plano.orgao_nome:
+                questao.orgao = self._orgao(plano)
+            if plano.cargo:
+                questao.cargo = self._cargo(plano.cargo)
+            questao.save()
+
+            if plano.topicos:
+                materia = self._materia(plano.materia)
+                questao.topicos.set([self._topico(materia, nome) for nome in plano.topicos])
+            if plano.alternativas is not None:
+                self._alterar_alternativas(questao, plano.alternativas)
+            if plano.resolucao:
+                _, criada = ResolucaoOficial.objects.update_or_create(
+                    questao=questao, defaults={'texto': plano.resolucao},
+                )
+                self.criados['Resoluções novas'] += criada
+            self.criados['Questões atualizadas'] += 1
+        return self.criados
+
+    def _alterar_alternativas(self, questao, alternativas):
+        # As alternativas existentes são alteradas no lugar (mesmo id): as respostas já dadas a elas
+        # continuam no histórico. A constraint permite uma só correta: desmarca todas antes de marcar.
+        atuais = list(questao.alternativas.all())
+        questao.alternativas.update(is_correta=False)
+        for ordem, (texto, correta) in enumerate(alternativas, start=1):
+            if ordem <= len(atuais):
+                alternativa = atuais[ordem - 1]
+                alternativa.texto, alternativa.is_correta = texto, correta
+                alternativa.save(update_fields=['texto', 'is_correta'])
+            else:
+                Alternativa.objects.create(questao=questao, ordem=ordem, texto=texto, is_correta=correta)
+                self.criados['Alternativas novas'] += 1

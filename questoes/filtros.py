@@ -88,7 +88,9 @@ class FiltrosQuestao:
             else:
                 valores[campo] = _inteiros(_valores(params, campo))
         # Espaços repetidos viram um só (a busca "  a   b " é a mesma que "a b")
-        busca = ' '.join(str(params.get('busca') or '').split())[:BUSCA_TAMANHO_MAXIMO].strip()
+        # (vale a última busca enviada; nos filtros gravados no simulado ela vem numa lista)
+        buscas = _valores(params, 'busca')
+        busca = ' '.join(str(buscas[-1] if buscas else '').split())[:BUSCA_TAMANHO_MAXIMO].strip()
         filtros = cls(usuario=usuario, busca=busca, **valores)
         # Tópicos que não são das matérias escolhidas (ex: o usuário desmarcou a matéria deles) são ignorados
         if filtros.materia and filtros.topico:
