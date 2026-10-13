@@ -47,6 +47,45 @@
 </div>
 {% endif %}
 
+{# Desempenho por matéria e, abaixo de cada uma, por tópico (ordem alfabética). Respeita os filtros acima. #}
+{# "Todos" = percentual de acerto de todos os usuários nas mesmas questões, para comparação #}
+{% if desempenho_materias %}
+<h3 class="secao-titulo">Desempenho por matéria e tópico</h3>
+<div class="tabela-desempenho-rolagem">
+    <table class="tabela-desempenho">
+        <thead>
+            <tr>
+                <th scope="col">Matéria / tópico</th>
+                <th scope="col">Respostas</th>
+                <th scope="col">Acerto</th>
+                <th scope="col">Erro</th>
+                <th scope="col"><abbr title="Percentual de acerto de todos os usuários">Acerto de todos</abbr></th>
+            </tr>
+        </thead>
+        {% for materia in desempenho_materias %}
+        <tbody>
+            <tr class="linha-materia">
+                <th scope="row">{{ materia.nome }}</th>
+                <td>{{ materia.total }}</td>
+                <td class="valor-acerto">{{ materia.acerto }}%</td>
+                <td class="valor-erro">{{ materia.erro }}%</td>
+                <td class="valor-geral">{{ materia.acerto_geral }}%</td>
+            </tr>
+            {% for topico in materia.topicos %}
+            <tr class="linha-topico">
+                <th scope="row">{{ topico.nome }}</th>
+                <td>{{ topico.total }}</td>
+                <td class="valor-acerto">{{ topico.acerto }}%</td>
+                <td class="valor-erro">{{ topico.erro }}%</td>
+                <td class="valor-geral">{{ topico.acerto_geral }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+
 {# Simulados: conjuntos fixos de questões criados pelo usuário (com os filtros, "que errei" ou "ainda não resolvi") #}
 <h3 class="secao-titulo">Meus simulados</h3>
 {% if simulados %}

@@ -345,3 +345,55 @@ class DashboardFiltrosTests(TestCase):
         # Com a matéria escolhida, o dropdown de tópicos só tem os tópicos dela
         self.assertEqual(set(resposta.context['topicos']), {self.licitacoes, self.contratos})
         self.assertContains(resposta, '<span class="filtros-contador">2 ativos</span>', html=True)
+
+    # --- Desempenho por matéria e tópico ---------------------------------------------------------
+
+    def desempenho(self, **filtros):
+        """[(nome, respostas, acerto, erro, acerto de todos, [tópicos no mesmo formato])] do contexto."""
+        def valores(linha):
+            return (linha['nome'], linha['total'], linha['acerto'], linha['erro'], linha['acerto_geral'])
+        return [
+            (*valores(materia), [valores(topico) for topico in materia['topicos']])
+            for materia in self.client.get(self.url, filtros).context['desempenho_materias']
+        ]
+
+    def test_desempenho_por_materia_e_topico_em_ordem_alfabetica(self):
+        # Administrativo: q1 (2 respostas, 1 acerto) + q3 (1 resposta, 0 acerto). Todos os usuários:
+        # mais as 3 respostas certas do 'outro' em q1 = 6 respostas, 4 acertos
+        self.assertEqual(self.desempenho(), [
+            ('Direito Administrativo', 3, 33.3, 66.7, 66.7, [
+                ('Contratos', 3, 33.3, 66.7, 66.7),
+                ('Licitações', 2, 50.0, 50.0, 80.0),
+            ]),
+            ('Direito Constitucional', 3, 100.0, 0, 100.0, [
+                ('Direitos Fundamentais', 3, 100.0, 0, 100.0),
+            ]),
+        ])
+
+    def test_desempenho_respeita_os_filtros(self):
+        # Só Licitações: a matéria conta só q1 e o tópico Contratos (também de q1) não aparece
+        self.assertEqual(self.desempenho(topico=self.licitacoes.id), [
+            ('Direito Administrativo', 2, 50.0, 50.0, 80.0, [('Licitações', 2, 50.0, 50.0, 80.0)]),
+        ])
+        self.assertEqual([linha[0] for linha in self.desempenho(banca=self.cebraspe.id)], ['Direito Constitucional'])
+
+    def test_desempenho_ignora_acentos_na_ordem_e_aparece_antes_dos_simulados(self):
+        etica = Materia.objects.create(nome='Ética')
+        questao = Questao.objects.create(
+            enunciado='x', ano=2024, banca=self.fgv, orgao=Orgao.objects.get(), cargo=self.auditor,
+        )
+        questao.topicos.add(Topico.objects.create(nome='Conduta', materia=etica))
+        HistoricoResolucao.objects.create(usuario=self.usuario, questao=questao, acertou=True)
+        self.assertEqual(
+            [linha[0] for linha in self.desempenho()],
+            ['Direito Administrativo', 'Direito Constitucional', 'Ética'],
+        )
+        html = self.client.get(self.url).content.decode()
+        self.assertLess(html.index('Desempenho por matéria e tópico'), html.index('Meus simulados'))
+
+    def test_sem_respostas_nao_mostra_o_desempenho(self):
+        novato = get_user_model().objects.create_user('novato', password='senha-forte-123')
+        self.client.force_login(novato)
+        resposta = self.client.get(self.url)
+        self.assertEqual(resposta.context['desempenho_materias'], [])
+        self.assertNotContains(resposta, 'Desempenho por matéria e tópico')
