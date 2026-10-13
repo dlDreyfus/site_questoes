@@ -1140,6 +1140,42 @@ body.pagina-login {
     background-color: var(--cor-sucesso);
 }
 
+/* "Baixar csv": dropdowns de matéria e banca e o botão. No celular, um embaixo do outro; a partir do
+   celular grande, lado a lado, com o botão alinhado à base dos campos */
+.form-exportar {
+    display: grid;
+    gap: 12px;
+}
+
+.form-exportar p {
+    margin: 0;
+}
+
+.form-exportar label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: bold;
+    font-size: 0.9em;
+    color: var(--cor-texto-suave);
+}
+
+.form-exportar select {
+    width: 100%;
+    min-height: var(--alvo-toque);
+    padding: 8px 10px;
+    border: 1px solid var(--cor-borda-forte);
+    border-radius: var(--raio-pequeno);
+    background-color: var(--cor-superficie);
+    color: var(--cor-texto);
+}
+
+@media (min-width: 576px) {
+    .form-exportar {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+        align-items: end;
+    }
+}
+
 /* Formulário de upload do .csv */
 .form-upload p {
     margin: 0 0 12px;
