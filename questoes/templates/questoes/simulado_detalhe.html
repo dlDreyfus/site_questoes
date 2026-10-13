@@ -7,6 +7,13 @@
 <div class="dashboard-header">
     <h2>{{ simulado.nome }}</h2>
     <div class="dashboard-acoes">
+        {# Acrescenta as questões cadastradas depois que atendem aos filtros (só nos que têm os filtros gravados) #}
+        {% if simulado.filtros is not None %}
+        <form method="POST" action="{% url 'questoes:atualizar_simulado' simulado.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-limpar" title="Incluir as questões cadastradas depois que atendem aos filtros deste simulado">Atualizar questões</button>
+        </form>
+        {% endif %}
         <a href="{% url 'questoes:editar_simulado' simulado.id %}" class="btn-limpar">Editar</a>
         <a href="{% url 'questoes:apagar_simulado' simulado.id %}" class="btn-perigo">Apagar</a>
         <a href="{% url 'usuarios:dashboard' %}" class="btn-voltar">Voltar para Meu Desempenho</a>
@@ -14,7 +21,10 @@
 </div>
 
 {% with total=pagina.paginator.count %}
-<p class="simulado-descricao">{{ simulado.descricao }} · Criado em {{ simulado.criado_em|date:"d/m/Y H:i" }}</p>
+<p class="simulado-descricao">
+    {% if simulado.publico %}<span class="selo-publico">Público</span> {% endif %}{{ simulado.descricao }} · Criado em {{ simulado.criado_em|date:"d/m/Y H:i" }}
+    {% if simulado.origem %}· Feito a partir do simulado público de {{ simulado.origem.usuario.username }}{% endif %}
+</p>
 
 {# Progresso deste simulado: só conta as respostas dadas aqui dentro #}
 <div class="dashboard-grid">
@@ -48,7 +58,7 @@
 {% include 'questoes/_questao_card.html' %}
 {% endfor %}
 
-{% include 'questoes/_paginacao.html' %}
+{% include 'questoes/_paginacao.html' with rotulo='Questão' com_aleatorio=True %}
 {% endblock %}
 
 {% block extra_js %}

@@ -9,8 +9,9 @@ from .models import COMENTARIO_TAMANHO_MAXIMO, Comentario, Simulado
 class SimuladoForm(forms.ModelForm):
     class Meta:
         model = Simulado
-        fields = ['nome']
-        labels = {'nome': 'Nome do simulado'}
+        fields = ['nome', 'publico']
+        labels = {'nome': 'Nome do simulado', 'publico': 'Simulado público'}
+        help_texts = {'publico': 'Aparece em "Simulados públicos" e outros usuários podem fazê-lo. Suas respostas continuam só suas.'}
         error_messages = {'nome': {'required': 'Dê um nome ao simulado.'}}
 
 

@@ -55,7 +55,7 @@
     {# O card é o <li>; o link do simulado e os botões Editar/Apagar ficam lado a lado (link dentro de link não vale) #}
     <li class="simulado-card{% if simulado.qtd_questoes and simulado.qtd_respondidas >= simulado.qtd_questoes %} concluido{% endif %}">
         <a href="{% url 'questoes:simulado_detalhe' simulado.id %}" class="simulado-item">
-            <span class="simulado-nome">{{ simulado.nome }}</span>
+            <span class="simulado-nome">{{ simulado.nome }}{% if simulado.publico %} <span class="selo-publico">Público</span>{% endif %}</span>
             <span class="simulado-info">{{ simulado.descricao }}</span>
             <span class="simulado-progresso">
                 {{ simulado.qtd_respondidas }} de {{ simulado.qtd_questoes }} respondidas · {{ simulado.qtd_acertos }} acerto{{ simulado.qtd_acertos|pluralize }}

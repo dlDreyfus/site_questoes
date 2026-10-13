@@ -9,7 +9,7 @@
 </div>
 
 <p class="simulado-explicacao">
-    Você pode mudar o nome de "{{ nome_atual }}". As questões e as respostas já dadas continuam as mesmas;
+    Você pode mudar o nome de "{{ nome_atual }}" e escolher se ele é público. As questões e as respostas já dadas continuam as mesmas;
     para outro conjunto de questões, crie um novo simulado.
 </p>
 
@@ -20,6 +20,13 @@
         {{ form.nome }}
         {{ form.nome.errors }}
     </div>
-    <button type="submit" class="btn-submit">Salvar nome</button>
+    <label class="opcao-publico">
+        {{ form.publico }}
+        <span>
+            {{ form.publico.label }}
+            <small>{{ form.publico.help_text }}</small>
+        </span>
+    </label>
+    <button type="submit" class="btn-submit">Salvar</button>
 </form>
 {% endblock %}

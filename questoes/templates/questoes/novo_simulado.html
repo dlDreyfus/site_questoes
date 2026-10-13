@@ -32,9 +32,17 @@
         <input type="text" name="nome" id="nome" maxlength="100" placeholder="Ex: Revisão de Licitações">
     </div>
 
+    <label class="opcao-publico">
+        <input type="checkbox" name="publico" value="1">
+        <span>
+            Simulado público
+            <small>Aparece em "Simulados públicos" e outros usuários podem fazê-lo. Suas respostas continuam só suas.</small>
+        </span>
+    </label>
+
     {% if total_questoes %}
     <button type="submit" class="btn-submit">
-        Criar simulado com {{ total_questoes }} {% if total_questoes == 1 %}questão{% else %}questões{% endif %}
+        Criar simulado com {{ total_questoes }} {% if total_questoes == 1 %}questão{% else %}questões{% endif %}{% if aleatorio %} em ordem aleatória{% endif %}
     </button>
     {% else %}
     <p class="simulado-vazio">Nenhuma questão atende a esses filtros. Ajuste os filtros para criar o simulado.</p>

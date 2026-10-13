@@ -1,5 +1,7 @@
 from django.urls import path, reverse_lazy
 from django.contrib.auth import views as auth_views
+
+from questoes.models import Questao
 from . import views # Importamos as views deste app
 
 app_name = 'usuarios'
@@ -7,9 +9,14 @@ app_name = 'usuarios'
 urlpatterns = [
     # Usamos a view nativa LoginView, mas apontamos para o nosso próprio HTML.
     # redirect_authenticated_user: quem já está logado e abre o login é levado direto ao LOGIN_REDIRECT_URL
+    # total_questoes_login: o total de questões da tela estilo MS-DOS. Vai o método, sem chamá-lo: o template
+    # conta a cada acesso (o context processor total_questoes só atende quem está logado)
     path(
         'login/',
-        auth_views.LoginView.as_view(template_name='usuarios/login.html', redirect_authenticated_user=True),
+        auth_views.LoginView.as_view(
+            template_name='usuarios/login.html', redirect_authenticated_user=True,
+            extra_context={'total_questoes_login': Questao.objects.count},
+        ),
         name='login',
     ),
     path('logout/', auth_views.LogoutView.as_view(next_page='usuarios:login'), name='logout'),

@@ -8,7 +8,32 @@
 const CAMPOS_DA_RESPOSTA = {
     curtir: { ativo: 'curtido', total: 'total_curtidas' },
     descurtir: { ativo: 'descurtido', total: 'total_descurtidas' },
+    facil: { ativo: 'facil', total: 'total_avaliacoes_facil' },
+    dificil: { ativo: 'dificil', total: 'total_avaliacoes_dificil' },
 };
+
+// Texto "X% acharam fácil · Y% acharam difícil (N pessoas classificaram)", o mesmo do _questao_card.html
+function atualizarDificuldade(grupo, estado) {
+    const texto = grupo.parentElement.querySelector('[data-dificuldade]');
+    if (!texto || !('total_avaliacoes' in estado)) return;
+    const total = estado.total_avaliacoes;
+    if (!total) {
+        texto.textContent = 'Ninguém classificou a dificuldade desta questão ainda.';
+        return;
+    }
+    const forte = (valor) => {
+        const el = document.createElement('strong');
+        el.textContent = `${valor}%`;
+        return el;
+    };
+    const base = document.createElement('span');
+    base.className = 'acertos-questao-base';
+    base.textContent = `(${total} ${total === 1 ? 'pessoa classificou' : 'pessoas classificaram'})`;
+    texto.replaceChildren(
+        forte(estado.percentual_facil), ' acharam fácil · ',
+        forte(estado.percentual_dificil), ' acharam difícil ', base,
+    );
+}
 
 function atualizarBotao(form, ativo, total) {
     const botao = form.querySelector('.btn-curtir');
@@ -49,6 +74,7 @@ document.querySelectorAll('.form-curtir').forEach((form) => {
                     atualizarBotao(f, estado[campos.ativo], estado[campos.total]);
                 }
             });
+            if (grupo) atualizarDificuldade(grupo, estado);
         } catch {
             // Algo deu errado (ex: sessão expirou): envia do jeito tradicional, e o servidor decide
             form.submit();

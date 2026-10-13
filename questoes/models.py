@@ -102,6 +102,12 @@ class Questao(models.Model):
     # permite fazer topico.questoes.all().
     topicos = models.ManyToManyField(Topico, related_name='questoes')
 
+    # Usuários que classificaram a questão como fácil ou difícil (botões abaixo do Curtir/Descurtir da
+    # resolução). Mesmo esquema das curtidas: cada usuário vota uma vez, e as duas listas se excluem
+    # (ver _alternar_curtida em views.py).
+    avaliacoes_facil = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='questoes_faceis', blank=True)
+    avaliacoes_dificil = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='questoes_dificeis', blank=True)
+
     class Meta:
         # Ordem padrão da listagem: provas mais recentes primeiro (a paginação exige ordem definida).
         ordering = ['-ano', 'id']
@@ -212,7 +218,20 @@ class Simulado(models.Model):
     nome = models.CharField(max_length=100)
     # Resumo legível dos filtros usados na criação (ex: "Banca: FGV · Ano: 2024"), só para exibir
     descricao = models.TextField(blank=True)
+    # Filtros usados na criação, como {campo: [valores]} (ver FiltrosQuestao.parametros). O botão
+    # "Atualizar questões" os aplica de novo para acrescentar as questões cadastradas depois.
+    # Vazio (None) = simulado criado antes de os filtros serem gravados: não dá para atualizar.
+    filtros = models.JSONField(null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
+    # Ordem aleatória: a semente que embaralha as questões (sempre na mesma ordem, de uma página para
+    # a outra). Vazio = ordem normal (ano mais recente primeiro).
+    semente = models.PositiveIntegerField(null=True, blank=True)
+    # Público: aparece na página "Simulados públicos" e qualquer usuário logado pode fazê-lo (numa cópia
+    # só dele). Privado (padrão): só o dono vê.
+    publico = models.BooleanField('público', default=False)
+    # Simulado público de onde esta cópia saiu (vazio = criado pelo próprio usuário). SET_NULL: se o
+    # original for apagado, a cópia e as respostas dadas nela continuam.
+    origem = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='copias')
     # N:M - as questões do simulado; related_name='simulados' permite questao.simulados.all()
     questoes = models.ManyToManyField(Questao, related_name='simulados')
 

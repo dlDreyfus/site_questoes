@@ -48,7 +48,8 @@ class ForumTests(BaseQuestoesTestCase):
                                   resposta_a=principal)
         pagina = self.client.get(self.lista)
         self.assertContains(pagina, 'Comentários (2)')
-        self.assertContains(pagina, 'Comentários (0)')
+        # A outra questão (sem comentários) fica na página seguinte: uma questão por vez
+        self.assertContains(self.client.get(self.lista, {'page': 2}), 'Comentários (0)')
         self.assertContains(pagina, 'Por que não é a A?')
         self.assertContains(pagina, '@colega Porque...')
         # Botão Responder já com a menção ao autor
@@ -189,7 +190,7 @@ class CurtidasTests(BaseQuestoesTestCase):
                                               resposta_a=self.comentario)
         resposta2.curtidas.add(self.usuario, self.autor)
         segundo.curtidas.add(self.usuario)
-        questao = next(q for q in self.client.get(self.lista).context['questoes'] if q == self.questao)
+        questao = next(q for q in self.client.get(self.lista).context['pagina'].paginator.object_list if q == self.questao)
         principais = questao.comentarios_principais
         self.assertEqual(principais, [self.comentario, segundo])
         self.assertEqual(list(principais[0].respostas.all()), [resposta1, resposta2])

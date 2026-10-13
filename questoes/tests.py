@@ -1,12 +1,18 @@
+import csv
+import io
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from .forms import TAMANHO_MAXIMO_CSV
+from .importacao import COLUNAS, LINHAS_EXEMPLO, importar_csv
 from .models import Alternativa, Banca, Cargo, HistoricoResolucao, Materia, Orgao, Questao, ResolucaoOficial, Topico
+from .tests_importacao import planilha
 from .views import QUESTOES_POR_PAGINA
 
 
@@ -61,8 +67,11 @@ class ListaQuestoesTests(BaseQuestoesTestCase):
     def test_lista_todas_as_questoes(self):
         resposta = self.client.get(self.url)
         self.assertEqual(resposta.status_code, 200)
+        # Uma questão por vez: a segunda fica na página seguinte
         self.assertContains(resposta, 'Questão da FGV')
-        self.assertContains(resposta, 'Questão do Cebraspe')
+        self.assertNotContains(resposta, 'Questão do Cebraspe')
+        self.assertContains(resposta, 'Questão 1 de 2')
+        self.assertContains(self.client.get(self.url, {'page': 2}), 'Questão do Cebraspe')
 
     def test_cada_filtro_separa_as_questoes(self):
         casos = (
@@ -75,19 +84,19 @@ class ListaQuestoesTests(BaseQuestoesTestCase):
         for parametros in casos:
             with self.subTest(parametros=parametros):
                 resposta = self.client.get(self.url, parametros)
-                self.assertEqual(list(resposta.context['questoes']), [self.questao])
+                self.assertEqual(list(resposta.context['pagina'].paginator.object_list), [self.questao])
 
     def test_filtro_por_materia_inclui_todos_os_topicos_dela(self):
         resposta = self.client.get(self.url, {'materia': self.direito.id})
-        self.assertEqual(list(resposta.context['questoes']), [self.questao, self.outra_questao])
+        self.assertEqual(list(resposta.context['pagina'].paginator.object_list), [self.questao, self.outra_questao])
         resposta = self.client.get(self.url, {'materia': self.constitucional.id})
-        self.assertEqual(list(resposta.context['questoes']), [])
+        self.assertEqual(list(resposta.context['pagina'].paginator.object_list), [])
 
     def test_filtros_combinados(self):
         resposta = self.client.get(self.url, {'orgao': self.outro_orgao.id, 'cargo': self.outro_cargo.id})
-        self.assertEqual(list(resposta.context['questoes']), [self.outra_questao])
+        self.assertEqual(list(resposta.context['pagina'].paginator.object_list), [self.outra_questao])
         resposta = self.client.get(self.url, {'orgao': self.orgao.id, 'cargo': self.outro_cargo.id})
-        self.assertEqual(list(resposta.context['questoes']), [])
+        self.assertEqual(list(resposta.context['pagina'].paginator.object_list), [])
 
     def test_dropdowns_mostram_as_opcoes_e_mantem_a_selecao(self):
         resposta = self.client.get(self.url, {'orgao': self.outro_orgao.id, 'cargo': self.cargo.id})
@@ -114,7 +123,7 @@ class ListaQuestoesTests(BaseQuestoesTestCase):
         # Ex: o usuário escolheu um tópico de Constitucional e depois trocou a matéria para Administrativo
         resposta = self.client.get(self.url, {'materia': self.direito.id, 'topico': self.topico_constitucional.id})
         self.assertEqual(resposta.context['selecionados']['topico'], ())
-        self.assertEqual(list(resposta.context['questoes']), [self.questao, self.outra_questao])
+        self.assertEqual(list(resposta.context['pagina'].paginator.object_list), [self.questao, self.outra_questao])
 
     def test_conta_os_filtros_ativos(self):
         casos = (
@@ -148,6 +157,16 @@ class ListaQuestoesTests(BaseQuestoesTestCase):
         self.assertContains(resposta, 'Texto-base.<br>I - primeiro item<br>II - segundo item')
         self.assertContains(resposta, '<span>Apenas I.<br>(com observação)</span>')
 
+    def test_linha_em_branco_separa_identificacao_do_enunciado(self):
+        self.questao.enunciado = 'Questão aleatória de Interpretação FGV #13:\n\nAssinale a alternativa correta.'
+        self.questao.save()
+        resposta = self.client.get(self.url, {'banca': self.fgv.id})
+        self.assertContains(
+            resposta,
+            '<div class="enunciado"><p>Questão aleatória de Interpretação FGV #13:</p>\n\n'
+            '<p>Assinale a alternativa correta.</p></div>',
+        )
+
     def test_card_mostra_orgao_e_cargo(self):
         resposta = self.client.get(self.url, {'banca': self.fgv.id})
         self.assertContains(resposta, '<strong>Órgão:</strong> TCU', html=False)
@@ -169,7 +188,7 @@ class ListaQuestoesTests(BaseQuestoesTestCase):
 
     def test_questoes_mais_recentes_primeiro(self):
         resposta = self.client.get(self.url)
-        self.assertEqual(list(resposta.context['questoes']), [self.questao, self.outra_questao])
+        self.assertEqual(list(resposta.context['pagina'].paginator.object_list), [self.questao, self.outra_questao])
 
     def test_alternativas_na_ordem_definida(self):
         # Criada por último, mas com ordem 0: deve aparecer primeiro
@@ -310,26 +329,52 @@ class ImportarQuestoesTests(BaseQuestoesTestCase):
                 self.assertContains(resposta, 'enctype="multipart/form-data"')
                 self.assertContains(resposta, 'accept=".csv,text/csv"')
 
-    def test_modelo_de_planilha(self):
-        self.assertEqual(self.client.get(reverse('questoes:modelo_planilha')).status_code, 403)
+    def test_aviso_de_que_a_planilha_e_so_para_questoes_novas(self):
         self.client.force_login(self.usuario_com_permissao_pelo_grupo())
-        self.assertContains(self.client.get(self.url), f'href="{reverse("questoes:modelo_planilha")}"')
-        resposta = self.client.get(reverse('questoes:modelo_planilha'))
-        self.assertEqual(resposta['Content-Type'], 'text/csv; charset=utf-8')
-        self.assertIn('attachment; filename="modelo_importacao_questoes.csv"', resposta['Content-Disposition'])
-        conteudo = resposta.content.decode('utf-8')
-        self.assertTrue(conteudo.startswith('﻿codigo;banca_sigla;'))  # BOM para o Excel
-        self.assertEqual(len(conteudo.strip().splitlines()), 3)  # cabeçalho + 2 exemplos
+        resposta = self.client.get(self.url)
+        self.assertContains(resposta, 'Somente novas questões')
+        self.assertContains(resposta, 'apenas para cadastrar questões novas')
+        # O "Baixar csv" fica num painel próprio, acima do envio de novas questões
+        html = resposta.content.decode()
+        self.assertLess(html.index('Baixar csv'), html.index('Envio de novas questões'))
 
-    def test_modelo_de_planilha_e_importavel(self):
-        # O próprio modelo, enviado sem alterações, importa as 2 questões de exemplo
+    def test_baixar_csv_com_todas_as_questoes(self):
+        url = reverse('questoes:exportar_questoes')
+        self.assertEqual(self.client.get(url).status_code, 403)
         self.client.force_login(self.usuario_com_permissao_pelo_grupo())
-        modelo = self.client.get(reverse('questoes:modelo_planilha')).content
-        resposta = self.client.post(self.url, {'arquivo': self.csv(modelo)}, follow=True)
-        self.assertRedirects(resposta, self.url)
-        self.assertContains(resposta, 'importada com sucesso')
-        self.assertTrue(Questao.objects.filter(codigo='FGV-TCU-2024-001').exists())
-        self.assertTrue(Questao.objects.filter(codigo='CEBRASPE-TCE-2023-001').exists())
+        self.assertContains(self.client.get(self.url), f'<a href="{url}" class="btn-limpar">Baixar csv</a>', html=True)
+        resposta = self.client.get(url)
+        self.assertEqual(resposta['Content-Type'], 'text/csv; charset=utf-8')
+        self.assertIn(f'attachment; filename="questoes_{timezone.localdate():%Y-%m-%d}.csv"',
+                      resposta['Content-Disposition'])
+        conteudo = resposta.content.decode('utf-8')
+        self.assertTrue(conteudo.startswith('\ufeffcodigo;banca_sigla;'))  # BOM para o Excel
+        # Cabeçalho + uma linha por questão do banco
+        self.assertEqual(len(conteudo.strip().splitlines()), 1 + Questao.objects.count())
+
+    def test_csv_traz_as_questoes_no_formato_da_importacao(self):
+        # As questões do exemplo, importadas pela planilha, voltam no .csv exatamente como foram enviadas
+        self.client.force_login(self.usuario_com_permissao_pelo_grupo())
+        self.assertTrue(importar_csv(planilha(*LINHAS_EXEMPLO)).sucesso)
+        conteudo = self.client.get(reverse('questoes:exportar_questoes')).content.decode('utf-8-sig')
+        linhas = {linha['codigo']: linha for linha in csv.DictReader(io.StringIO(conteudo), delimiter=';')}
+        for exemplo in LINHAS_EXEMPLO:
+            with self.subTest(codigo=exemplo['codigo']):
+                esperado = {coluna.nome: '' for coluna in COLUNAS} | exemplo
+                self.assertEqual(linhas[exemplo['codigo']], esperado)
+
+    def test_csv_reimportado_recria_as_mesmas_questoes(self):
+        self.client.force_login(self.usuario_com_permissao_pelo_grupo())
+        self.assertTrue(importar_csv(planilha(*LINHAS_EXEMPLO)).sucesso)
+        # Só as questões que vieram da planilha: as do setUp foram criadas direto no banco, sem as
+        # validações da importação (uma delas tem uma alternativa só)
+        Questao.objects.filter(codigo=None).delete()
+        exportado = self.client.get(reverse('questoes:exportar_questoes')).content
+        Questao.objects.all().delete()
+        resultado = importar_csv(self.csv(exportado))
+        self.assertTrue(resultado.sucesso, resultado.erros)
+        self.assertEqual(set(Questao.objects.exclude(codigo=None).values_list('codigo', flat=True)),
+                         {linha['codigo'] for linha in LINHAS_EXEMPLO})
 
     def test_mostra_os_erros_na_pagina(self):
         self.client.force_login(self.usuario_com_permissao_pelo_grupo())

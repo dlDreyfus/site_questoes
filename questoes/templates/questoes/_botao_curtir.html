@@ -1,11 +1,17 @@
 {# Botão de voto (👍 Curtir ou 👎 Descurtir) + total, usado nos comentários e na resolução oficial. #}
 {# Parâmetros: url (rota do voto), ativo (bool: o usuário já votou assim), total (int), #}
-{# alvo (ex: "este comentário") e tipo ("curtir", padrão, ou "descurtir"). #}
+{# alvo (ex: "este comentário") e tipo ("curtir", padrão, "descurtir", "facil" ou "dificil"). #}
 {# Sem JavaScript, envia o formulário e a página volta ao item; com JavaScript (static/js/forum.js), #}
 {# atualiza os botões e os totais sem recarregar. Os data-* levam os textos para o JavaScript. #}
 {% if tipo == 'descurtir' %}
     {% firstof 'Descurtir' as rotulo_inativo %}{% firstof 'Descurtido' as rotulo_ativo %}
     {% firstof '👎' as icone %}{% firstof 'descurtida' as unidade %}
+{% elif tipo == 'facil' %}
+    {% firstof 'Fácil' as rotulo_inativo %}{% firstof 'Fácil ✓' as rotulo_ativo %}
+    {% firstof '😌' as icone %}{% firstof 'voto' as unidade %}
+{% elif tipo == 'dificil' %}
+    {% firstof 'Difícil' as rotulo_inativo %}{% firstof 'Difícil ✓' as rotulo_ativo %}
+    {% firstof '😓' as icone %}{% firstof 'voto' as unidade %}
 {% else %}
     {% firstof 'Curtir' as rotulo_inativo %}{% firstof 'Curtido' as rotulo_ativo %}
     {% firstof '👍' as icone %}{% firstof 'curtida' as unidade %}

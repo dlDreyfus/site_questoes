@@ -1,0 +1,20 @@
+{# Botão "Aleatório" da paginação (ao lado do "Última"). Ligado, "Próxima" leva a uma questão sorteada #}
+{# entre as que atendem aos filtros; clicar de novo volta à ordem normal. Só o símbolo aparece: o nome #}
+{# fica para leitores de tela, e o estado ligado é a cor (classe 'ativo' e aria-pressed). #}
+{# No simulado a ordem fica gravada nele (POST); na lista, vai na URL (url_aleatorio, ver views.py). #}
+{% if simulado %}
+<form method="POST" action="{% url 'questoes:alternar_ordem_simulado' simulado.id %}" class="form-aleatorio">
+    {% csrf_token %}
+    <button type="submit" class="btn-limpar btn-aleatorio{% if simulado.semente %} ativo{% endif %}"
+            aria-pressed="{% if simulado.semente %}true{% else %}false{% endif %}"
+            title="{% if simulado.semente %}Voltar à ordem normal{% else %}Mostrar as questões em ordem aleatória{% endif %}">
+        <span aria-hidden="true">🔀</span><span class="visualmente-oculto">Aleatório</span>
+    </button>
+</form>
+{% elif url_aleatorio %}
+<a href="{{ url_aleatorio }}" class="btn-limpar btn-aleatorio{% if aleatorio %} ativo{% endif %}"
+   aria-pressed="{% if aleatorio %}true{% else %}false{% endif %}" role="button"
+   title="{% if aleatorio %}Voltar à ordem normal{% else %}Mostrar as questões em ordem aleatória{% endif %}">
+    <span aria-hidden="true">🔀</span><span class="visualmente-oculto">Aleatório</span>
+</a>
+{% endif %}

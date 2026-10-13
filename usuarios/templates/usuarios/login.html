@@ -7,6 +7,20 @@
 
 {% block content %}
 <div class="login-box">
+    {# Tela estilo MS-DOS: o texto é "digitado" pelo static/js/terminal.js. Sem JavaScript (ou com #}
+    {# movimento reduzido), o texto aparece inteiro. A cópia invisível reserva a altura final, para o #}
+    {# formulário não pular enquanto o texto é digitado. #}
+    {# O total de questões vem da view (extra_context em usuarios/urls.py), contado a cada acesso #}
+    {% with total=total_questoes_login %}
+    <div class="terminal-dos">
+        <p class="terminal-reserva" aria-hidden="true">C:\&gt; A melhor forma de revisar é fazendo questões de provas anteriores!<br>C:\&gt; Comente e curta as questões.<br>C:\&gt; Interaja com a comunidade.<br>C:\&gt; Temos {{ total }} {% if total == 1 %}questão comentada{% else %}questões comentadas{% endif %}.<br>C:\&gt; Cadastre-se, faça o Login e Bons estudos._</p>
+        <p class="terminal-texto" data-terminal>C:\&gt; A melhor forma de revisar é fazendo questões de provas anteriores!
+C:\&gt; Comente e curta as questões.
+C:\&gt; Interaja com a comunidade.
+C:\&gt; Temos {{ total }} {% if total == 1 %}questão comentada{% else %}questões comentadas{% endif %}.
+C:\&gt; Cadastre-se, faça o Login e Bons estudos.</p>
+    </div>
+    {% endwith %}
     <h2>Acessar Simulado</h2>
     <form method="POST">
         {% csrf_token %}
@@ -16,4 +30,9 @@
     <p class="login-link"><a href="{% url 'usuarios:recuperar_senha' %}">Esqueceu a senha? Recuperar Senha</a></p>
     <p class="login-link">Ainda não tem conta? <a href="{% url 'usuarios:cadastro' %}">Cadastrar Novo Usuário</a></p>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/terminal.js' %}" defer></script>
 {% endblock %}
