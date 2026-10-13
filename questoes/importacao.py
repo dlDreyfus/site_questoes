@@ -117,11 +117,13 @@ class ResultadoImportacao:
         return not self.erros
 
 
-def exportar_csv():
-    """Todas as questões do banco num .csv com as mesmas colunas da importação (pronto para o Excel).
-    O arquivo serve de referência do formato e de base para a planilha de atualização (pelo código)."""
+def exportar_csv(questoes=None):
+    """As questões (todas do banco, se não vier um queryset) num .csv com as mesmas colunas da importação
+    (pronto para o Excel). O arquivo serve de referência do formato e de base para a planilha de
+    atualização (pelo código)."""
     questoes = (
-        Questao.objects.select_related('banca', 'orgao', 'cargo', 'resolucao')
+        (Questao.objects.all() if questoes is None else questoes)
+        .select_related('banca', 'orgao', 'cargo', 'resolucao')
         .prefetch_related('alternativas', 'topicos__materia')
         .order_by(F('codigo').asc(nulls_last=True), 'pk')
     )

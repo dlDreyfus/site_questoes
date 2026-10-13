@@ -31,10 +31,32 @@
 <section class="painel">
     <h3 class="painel-titulo">Questões cadastradas em planilha</h3>
     <p class="painel-texto">
-        Baixe todas as questões do banco num arquivo .csv com as mesmas colunas da importação (uma questão por
-        linha). Use-o como referência do formato ou como base para a planilha de atualização.
+        Baixe as questões do banco num arquivo .csv com as mesmas colunas da importação (uma questão por
+        linha). Escolha uma matéria e/ou uma banca para baixar só as questões delas, ou deixe "Todas" para
+        baixar o banco inteiro. Use o arquivo como referência do formato ou como base para a planilha de atualização.
     </p>
-    <a href="{% url 'questoes:exportar_questoes' %}" class="btn-limpar">Baixar csv</a>
+    {# GET: os dropdowns viram ?materia=...&banca=... na URL do download (vazio = sem filtro) #}
+    <form method="GET" action="{% url 'questoes:exportar_questoes' %}" class="form-exportar">
+        <p>
+            <label for="exportar-materia">Matéria</label>
+            <select name="materia" id="exportar-materia">
+                <option value="">Todas</option>
+                {% for materia in materias_exportacao %}
+                <option value="{{ materia.id }}">{{ materia.nome }}</option>
+                {% endfor %}
+            </select>
+        </p>
+        <p>
+            <label for="exportar-banca">Banca</label>
+            <select name="banca" id="exportar-banca">
+                <option value="">Todas</option>
+                {% for banca in bancas_exportacao %}
+                <option value="{{ banca.id }}">{{ banca }}</option>
+                {% endfor %}
+            </select>
+        </p>
+        <button type="submit" class="btn-limpar">Baixar csv</button>
+    </form>
 </section>
 
 <div class="painel">

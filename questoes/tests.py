@@ -342,7 +342,9 @@ class ImportarQuestoesTests(BaseQuestoesTestCase):
         url = reverse('questoes:exportar_questoes')
         self.assertEqual(self.client.get(url).status_code, 403)
         self.client.force_login(self.usuario_com_permissao_pelo_grupo())
-        self.assertContains(self.client.get(self.url), f'<a href="{url}" class="btn-limpar">Baixar csv</a>', html=True)
+        pagina = self.client.get(self.url)
+        self.assertContains(pagina, f'action="{url}"')
+        self.assertContains(pagina, '<button type="submit" class="btn-limpar">Baixar csv</button>', html=True)
         resposta = self.client.get(url)
         self.assertEqual(resposta['Content-Type'], 'text/csv; charset=utf-8')
         self.assertIn(f'attachment; filename="questoes_{timezone.localdate():%Y-%m-%d}.csv"',
@@ -375,6 +377,48 @@ class ImportarQuestoesTests(BaseQuestoesTestCase):
         self.assertTrue(resultado.sucesso, resultado.erros)
         self.assertEqual(set(Questao.objects.exclude(codigo=None).values_list('codigo', flat=True)),
                          {linha['codigo'] for linha in LINHAS_EXEMPLO})
+
+    def enunciados_no_csv(self, **filtros):
+        """Enunciados das questões no .csv baixado com os filtros (a coluna 'enunciado' identifica cada uma)."""
+        conteudo = self.client.get(reverse('questoes:exportar_questoes'), filtros).content.decode('utf-8-sig')
+        return {linha['enunciado'] for linha in csv.DictReader(io.StringIO(conteudo), delimiter=';')}
+
+    def test_baixar_csv_por_materia_e_por_banca(self):
+        self.client.force_login(self.usuario_com_permissao_pelo_grupo())
+        constitucional = self.criar_questao(ano=2022, banca=self.cebraspe, enunciado='Questão de Constitucional')
+        constitucional.topicos.add(self.topico_constitucional)
+        casos = {
+            'sem filtro (Todas)': ({'materia': '', 'banca': ''},
+                                   {'Questão da FGV', 'Questão do Cebraspe', 'Questão de Constitucional'}),
+            'matéria': ({'materia': self.direito.id}, {'Questão da FGV', 'Questão do Cebraspe'}),
+            'banca': ({'banca': self.cebraspe.id}, {'Questão do Cebraspe', 'Questão de Constitucional'}),
+            'matéria e banca': ({'materia': self.direito.id, 'banca': self.cebraspe.id}, {'Questão do Cebraspe'}),
+            'combinação sem questões': ({'materia': self.constitucional.id, 'banca': self.fgv.id}, set()),
+            # O .csv só aceita matéria e banca; o resto (e valores inválidos) é ignorado
+            'outros filtros ignorados': ({'ano': 1999, 'banca': 'abc'},
+                                         {'Questão da FGV', 'Questão do Cebraspe', 'Questão de Constitucional'}),
+        }
+        for nome, (filtros, esperado) in casos.items():
+            with self.subTest(nome):
+                self.assertEqual(self.enunciados_no_csv(**filtros), esperado)
+
+    def test_nome_do_arquivo_diz_a_materia_e_a_banca(self):
+        self.client.force_login(self.usuario_com_permissao_pelo_grupo())
+        resposta = self.client.get(reverse('questoes:exportar_questoes'),
+                                   {'materia': self.direito.id, 'banca': self.fgv.id})
+        self.assertIn(f'filename="questoes_fgv_direito-administrativo_{timezone.localdate():%Y-%m-%d}.csv"',
+                      resposta['Content-Disposition'])
+
+    def test_dropdowns_listam_so_materias_e_bancas_com_questoes(self):
+        self.client.force_login(self.usuario_com_permissao_pelo_grupo())
+        sem_questoes = Banca.objects.create(nome='Banca sem questões', sigla='VAZIA')
+        resposta = self.client.get(self.url)
+        self.assertEqual(list(resposta.context['materias_exportacao']), [self.direito])
+        self.assertEqual(resposta.context['bancas_exportacao'], [self.cebraspe, self.fgv])
+        self.assertContains(resposta, '<select name="materia" id="exportar-materia">')
+        self.assertContains(resposta, '<select name="banca" id="exportar-banca">')
+        self.assertContains(resposta, '<option value="">Todas</option>', count=2, html=True)
+        self.assertNotContains(resposta, sem_questoes.sigla)
 
     def test_mostra_os_erros_na_pagina(self):
         self.client.force_login(self.usuario_com_permissao_pelo_grupo())

@@ -12,12 +12,14 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme, urlencode
+from django.utils.text import slugify
 from django.views.decorators.http import require_http_methods, require_POST
 from .forms import ComentarioForm, ImportarCSVForm, SimuladoForm
 from .importacao import COLUNAS, atualizar_csv, exportar_csv, importar_csv
 from .filtros import CAMPOS_SIMULADO, FiltrosQuestao, parse_int
 from .models import (
-    COMENTARIO_TAMANHO_MAXIMO, Comentario, HistoricoResolucao, Questao, ResolucaoOficial, Simulado,
+    COMENTARIO_TAMANHO_MAXIMO, Banca, Comentario, HistoricoResolucao, Materia, Questao, ResolucaoOficial,
+    Simulado,
 )
 
 # Quantidade de questões exibidas por página (lista e simulado mostram uma questão por vez)
@@ -689,6 +691,9 @@ def importar_questoes(request):
         'total_erros': len(erros),
         'erros_ocultos': max(len(erros) - MAX_ERROS_EXIBIDOS, 0),
         'pagina': pagina,
+        # Dropdowns do "Baixar csv": só matérias e bancas que têm questões cadastradas
+        'materias_exportacao': Materia.objects.filter(topicos__questoes__isnull=False).distinct().order_by('nome'),
+        'bancas_exportacao': sorted(Banca.objects.filter(questao__isnull=False).distinct(), key=str),
         # Colunas de ações da tabela: só para o superusuário e o grupo "Administrador"
         'pode_gerenciar': pode_gerenciar_questoes(request.user),
         # O admin do Django exige is_staff além da permissão; sem ela o link só levaria ao login do admin
@@ -697,13 +702,24 @@ def importar_questoes(request):
     return render(request, 'questoes/importar_questoes.html', context)
 
 
-# Botão "Baixar csv": todas as questões do banco, com as mesmas colunas da importação
+# Filtros do "Baixar csv": um dropdown para a matéria e outro para a banca (vazio = todas)
+FILTROS_EXPORTACAO = ('materia', 'banca')
+
+
+# Botão "Baixar csv": as questões do banco, com as mesmas colunas da importação. Matéria e banca
+# (opcionais, combináveis) restringem o arquivo, com a mesma regra da lista de questões.
 @login_required
 @permission_required('questoes.importar_questoes', raise_exception=True)
 def exportar_questoes(request):
-    resposta = HttpResponse(exportar_csv(), content_type='text/csv; charset=utf-8')
+    filtros = FiltrosQuestao.da_requisicao(request.GET, campos=FILTROS_EXPORTACAO)
+    questoes = filtros.aplicar(Questao.objects.all())
+    # O nome do arquivo diz o que foi escolhido (ex: questoes_fgv_direito-administrativo_2026-10-13.csv)
+    escolhidos = [str(banca) for banca in Banca.objects.filter(pk__in=filtros.banca).order_by('pk')]
+    escolhidos += Materia.objects.filter(pk__in=filtros.materia).order_by('pk').values_list('nome', flat=True)
+    nome = '_'.join(['questoes', *(slugify(texto) for texto in escolhidos), f'{timezone.localdate():%Y-%m-%d}'])
+    resposta = HttpResponse(exportar_csv(questoes), content_type='text/csv; charset=utf-8')
     # attachment: o navegador baixa o arquivo em vez de abrir na tela (o nome leva a data do download)
-    resposta['Content-Disposition'] = f'attachment; filename="questoes_{timezone.localdate():%Y-%m-%d}.csv"'
+    resposta['Content-Disposition'] = f'attachment; filename="{nome}.csv"'
     return resposta
 
 

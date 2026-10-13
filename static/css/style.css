@@ -1140,6 +1140,42 @@ body.pagina-login {
     background-color: var(--cor-sucesso);
 }
 
+/* "Baixar csv": dropdowns de matéria e banca e o botão. No celular, um embaixo do outro; a partir do
+   celular grande, lado a lado, com o botão alinhado à base dos campos */
+.form-exportar {
+    display: grid;
+    gap: 12px;
+}
+
+.form-exportar p {
+    margin: 0;
+}
+
+.form-exportar label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: bold;
+    font-size: 0.9em;
+    color: var(--cor-texto-suave);
+}
+
+.form-exportar select {
+    width: 100%;
+    min-height: var(--alvo-toque);
+    padding: 8px 10px;
+    border: 1px solid var(--cor-borda-forte);
+    border-radius: var(--raio-pequeno);
+    background-color: var(--cor-superficie);
+    color: var(--cor-texto);
+}
+
+@media (min-width: 576px) {
+    .form-exportar {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+        align-items: end;
+    }
+}
+
 /* Formulário de upload do .csv */
 .form-upload p {
     margin: 0 0 12px;
@@ -1291,6 +1327,103 @@ body.pagina-login {
 }
 
 .dashboard-card-percentual .numero {
+    color: var(--cor-primaria);
+}
+
+/* Desempenho por matéria e tópico: tabela em que cada célula é um card como o "Total respondidas"
+   (fundo branco, cantos arredondados, sombra, texto centralizado), com espaço entre elas. No celular
+   estreito a tabela rola dentro da caixa, nunca a página. A coluna dos nomes fica à esquerda, para o
+   recuo dos tópicos sob a matéria continuar visível. */
+.tabela-desempenho-rolagem {
+    overflow-x: auto;
+    /* Folga para a sombra dos cards da borda não ser cortada pela rolagem */
+    padding: 4px;
+    margin: -4px;
+}
+
+.tabela-desempenho {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+    margin-top: -8px;
+    font-size: 0.9rem;
+}
+
+.tabela-desempenho th,
+.tabela-desempenho td {
+    padding: 10px 12px;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+/* Cada célula do corpo é um card. Entre as colunas, a borda da cor do fundo da página faz o espaço
+   (border-spacing horizontal descolaria a tabela das bordas da página) */
+.tabela-desempenho tbody th,
+.tabela-desempenho tbody td {
+    background: var(--cor-superficie);
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+    border-left: 8px solid var(--cor-fundo);
+    background-clip: padding-box;
+}
+
+/* Títulos com o mesmo recuo das células, para ficarem centralizados sobre elas */
+.tabela-desempenho thead th {
+    border-left: 8px solid transparent;
+}
+
+.tabela-desempenho tbody th,
+.tabela-desempenho thead th:first-child {
+    border-left: 0;
+}
+
+/* Colunas dos números com a mesma largura: os valores ficam um embaixo do outro, no meio da coluna */
+.tabela-desempenho thead th:not(:first-child) {
+    width: 14%;
+}
+
+/* Coluna dos nomes: à esquerda e quebrando linha (nomes de tópico podem ser longos) */
+.tabela-desempenho th[scope="row"],
+.tabela-desempenho thead th:first-child {
+    text-align: left;
+    white-space: normal;
+    min-width: 10rem;
+}
+
+/* Títulos das colunas: como o rótulo do card (cinza, negrito, maiúsculas), sem caixa própria */
+.tabela-desempenho thead th {
+    padding-bottom: 0;
+    color: #666;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+
+.tabela-desempenho abbr {
+    text-decoration: none;
+}
+
+.tabela-desempenho .linha-materia > * {
+    font-weight: bold;
+}
+
+/* Tópicos recuados sob a matéria */
+.tabela-desempenho .linha-topico th {
+    padding-left: 28px;
+    font-weight: normal;
+    color: var(--cor-texto-suave);
+}
+
+/* Mesmas cores dos cards de cima */
+.tabela-desempenho .valor-acerto {
+    color: var(--cor-sucesso);
+}
+
+.tabela-desempenho .valor-erro {
+    color: var(--cor-perigo);
+}
+
+.tabela-desempenho .valor-geral {
     color: var(--cor-primaria);
 }
 
