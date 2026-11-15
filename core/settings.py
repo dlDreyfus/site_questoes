@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     # Apps do projeto
     'questoes',
     'usuarios',
+    'programacao',
 
 ]
 
@@ -61,6 +62,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Os apps abrem em abas da Home, dentro de iframes: as páginas podem ser exibidas em iframe só pelo
+# próprio site (o padrão do Django, DENY, bloquearia as abas)
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 ROOT_URLCONF = 'core.urls'
 
@@ -181,5 +186,5 @@ AUTH_USER_MODEL = 'usuarios.Usuario'
 
 # Direciona o usuário após ele logar ou deslogar
 
-LOGIN_REDIRECT_URL = 'questoes:lista_questoes'
+LOGIN_REDIRECT_URL = 'programacao:home'
 LOGIN_URL = 'usuarios:login'

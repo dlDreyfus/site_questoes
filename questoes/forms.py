@@ -29,8 +29,9 @@ class ComentarioForm(forms.ModelForm):
             },
         }
 
-# Tamanho máximo aceito para a planilha (5 MB é suficiente para milhares de questões em texto)
-TAMANHO_MAXIMO_CSV = 5 * 1024 * 1024
+# Tamanho máximo aceito para as planilhas de questões novas e de atualização (a de atualização costuma
+# partir do "Baixar csv" do banco inteiro, que passa fácil dos poucos MB)
+TAMANHO_MAXIMO_CSV = 20 * 1024 * 1024
 
 
 # Formulário de envio da planilha de importação (.csv)

@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Home{% endblock %}
+
+{% block body_class %}pagina-home{% endblock %}
+
+{% block extra_css %}
+{# Se a Home for parar dentro de uma aba (ex: o login de uma sessão expirada leva para cá), #}
+{# ela sai do iframe e ocupa a janela inteira, para não ficar uma Home dentro da outra #}
+<script>if (window.self !== window.top) window.top.location.href = window.location.href;</script>
+{% endblock %}
+
+{% block cabecalho %}
+<!-- Barra horizontal fixa no topo -->
+<header class="home-topo">
+    {# Espaço reservado para anúncios, no lugar da marca, centralizado e no estilo MS-DOS da tela de login: #}
+    {# o texto é "digitado" pelo static/js/terminal.js e a cópia invisível reserva o tamanho final da caixa #}
+    <div class="terminal-dos home-anuncio">
+        <p class="terminal-reserva" aria-hidden="true">C:\&gt; Este espaço ajuda a deixar o projeto gratuito através de anúncios e propagandas pagas_</p>
+        <p class="terminal-texto" data-terminal>C:\&gt; Este espaço ajuda a deixar o projeto gratuito através de anúncios e propagandas pagas</p>
+    </div>
+    <nav class="topo-menu" aria-label="Menu do usuário">
+        <span class="topo-usuario" title="{{ user.username }}">Olá, {{ user.username }}</span>
+        <!-- O LogoutView exige POST, por isso o Sair é um formulário -->
+        <form method="POST" action="{% url 'usuarios:logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-limpar">Sair</button>
+        </form>
+    </nav>
+</header>
+
+<!-- Barra vertical à esquerda: cada link abre o app numa aba da Home. -->
+<!-- data-aba é o nome da aba; sem JavaScript, o link abre a página normalmente. -->
+<!-- Cada app é um mini robô animado (desenho em SVG, animado no style.css) com um balão de fala; -->
+<!-- o aria-label dá o nome do app a quem usa leitor de tela, já que o desenho é só decorativo. -->
+<!-- Os robôs podem ser arrastados para trocar de posição (ou Alt + seta, pelo teclado). -->
+<nav class="home-lateral" aria-label="Aplicativos">
+    <a href="{% url 'questoes:lista_questoes' %}" class="home-lateral-link robo-link-questoes" data-aba="Questões" aria-label="Questões: revise fazendo questões" title="Arraste para trocar o robô de posição">
+        <span class="robo-balao">REVISE FAZENDO QUESTÕES</span>
+        {# Robô de questões: pula, pisca, a antena acende e o braço acena com um lápis #}
+        <svg class="robo" viewBox="0 0 80 80" aria-hidden="true" focusable="false">
+            <g class="robo-corpo">
+                <line x1="40" y1="9" x2="40" y2="16" class="robo-haste"/>
+                <circle cx="40" cy="7" r="4" class="robo-cor robo-antena-luz"/>
+                <rect x="18" y="27" width="4" height="8" rx="2" class="robo-metal"/>
+                <rect x="58" y="27" width="4" height="8" rx="2" class="robo-metal"/>
+                <rect x="22" y="16" width="36" height="28" rx="7" class="robo-cor"/>
+                <rect x="27" y="21" width="26" height="17" rx="4" class="robo-claro"/>
+                <g class="robo-olhos">
+                    <circle cx="34" cy="28" r="3" class="robo-escuro"/>
+                    <circle cx="46" cy="28" r="3" class="robo-escuro"/>
+                </g>
+                <path d="M36 33 q4 3 8 0" class="robo-sorriso"/>
+                <rect x="36" y="44" width="8" height="4" class="robo-metal"/>
+                <rect x="18" y="50" width="8" height="13" rx="4" class="robo-metal"/>
+                <rect x="26" y="48" width="28" height="20" rx="5" class="robo-cor-escura"/>
+                <path d="M34 58 l4 4 l8 -9" class="robo-check"/>
+                <g class="robo-braco-acenando">
+                    <rect x="54" y="38" width="8" height="14" rx="4" class="robo-metal"/>
+                    <rect x="56" y="28" width="4" height="10" class="robo-lapis"/>
+                    <polygon points="56,28 60,28 58,23" class="robo-escuro"/>
+                </g>
+            </g>
+            <rect x="30" y="68" width="7" height="8" rx="2" class="robo-metal"/>
+            <rect x="43" y="68" width="7" height="8" rx="2" class="robo-metal"/>
+        </svg>
+    </a>
+    <a href="{% url 'programacao:inicio' %}" class="home-lateral-link robo-link-programacao" data-aba="Programação" aria-label="Programação: estude lógica de programação" title="Arraste para trocar o robô de posição">
+        <span class="robo-balao">ESTUDE LÓGICA DE PROGRAMAÇÃO</span>
+        {# Robô de programação: balança, as antenas piscam, o cursor da tela pisca e os braços digitam no notebook #}
+        <svg class="robo" viewBox="0 0 80 80" aria-hidden="true" focusable="false">
+            <g class="robo-corpo">
+                <line x1="30" y1="16" x2="26" y2="8" class="robo-haste"/>
+                <line x1="50" y1="16" x2="54" y2="8" class="robo-haste"/>
+                <circle cx="26" cy="7" r="3" class="robo-cor robo-antena-luz"/>
+                <circle cx="54" cy="7" r="3" class="robo-cor robo-antena-luz robo-antena-luz-2"/>
+                <rect x="20" y="14" width="40" height="28" rx="12" class="robo-cor"/>
+                <rect x="25" y="19" width="30" height="18" rx="5" class="robo-escuro"/>
+                <g class="robo-olhos">
+                    <rect x="31" y="23" width="5" height="5" rx="1" class="robo-pixel"/>
+                    <rect x="44" y="23" width="5" height="5" rx="1" class="robo-pixel"/>
+                </g>
+                <rect x="37" y="31" width="6" height="2" class="robo-pixel robo-cursor"/>
+                <rect x="36" y="42" width="8" height="3" class="robo-metal"/>
+                <rect x="24" y="45" width="32" height="22" rx="6" class="robo-cor-escura"/>
+                <rect x="17" y="47" width="7" height="13" rx="3.5" class="robo-metal robo-braco-esq"/>
+                <rect x="56" y="47" width="7" height="13" rx="3.5" class="robo-metal robo-braco-dir"/>
+                <polygon points="25,49 55,49 57,60 23,60" class="robo-tampa"/>
+                <text x="40" y="57.5" text-anchor="middle" class="robo-codigo">&lt;/&gt;</text>
+                <rect x="20" y="60" width="40" height="4" rx="1" class="robo-metal"/>
+            </g>
+            <rect x="31" y="67" width="7" height="9" rx="2" class="robo-metal"/>
+            <rect x="42" y="67" width="7" height="9" rx="2" class="robo-metal"/>
+        </svg>
+    </a>
+</nav>
+{% endblock %}
+
+{% block main %}
+<main class="home-area">
+    <!-- Abas abertas. A primeira (Início) é a própria Home e não fecha. -->
+    <div class="home-abas" role="tablist" aria-label="Abas abertas" data-abas data-usuario="{{ user.pk }}">
+        <button type="button" class="home-aba ativa" role="tab" aria-selected="true" aria-controls="painel-inicio" id="aba-inicio">Início</button>
+    </div>
+
+    <div class="home-paineis" data-paineis>
+        <section class="home-painel ativo" role="tabpanel" id="painel-inicio" aria-labelledby="aba-inicio">
+            <div class="conteudo">
+                {% for message in messages %}
+                {% if not message.extra_tags %}
+                <div class="alert {{ message.level_tag }}" role="status">{{ message }}</div>
+                {% endif %}
+                {% endfor %}
+
+                <div class="dashboard-header">
+                    <h2>Bem-vindo(a), {{ user.username }}</h2>
+                </div>
+
+                <div class="dashboard-card">
+                    <p>Escolha um aplicativo na barra lateral. Cada um abre numa aba nova, aqui mesmo na Home.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/abas.js' %}"></script>
+<script src="{% static 'js/terminal.js' %}"></script>
+{% endblock %}

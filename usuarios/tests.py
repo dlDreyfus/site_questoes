@@ -27,7 +27,7 @@ class LoginTests(TestCase):
     def test_usuario_logado_nao_ve_o_login_de_novo(self):
         self.client.force_login(self.usuario)
         resposta = self.client.get(reverse('usuarios:login'))
-        self.assertRedirects(resposta, reverse('questoes:lista_questoes'))
+        self.assertRedirects(resposta, reverse('programacao:home'))
 
     def test_tela_estilo_dos_mostra_o_total_de_questoes_antes_do_bons_estudos(self):
         banca = Banca.objects.create(nome='Fundação Getulio Vargas', sigla='FGV')
@@ -74,7 +74,7 @@ class CadastroTests(TestCase):
 
     def test_cadastro_cria_conta_ativa_faz_login_e_mostra_boas_vindas(self):
         resposta = self.client.post(self.url, self.dados_validos, follow=True)
-        self.assertRedirects(resposta, reverse('questoes:lista_questoes'))
+        self.assertRedirects(resposta, reverse('programacao:home'))
         usuario = get_user_model().objects.get(username='novo_aluno')
         self.assertTrue(usuario.is_active)
         self.assertFalse(usuario.is_staff)
@@ -93,7 +93,7 @@ class CadastroTests(TestCase):
         resposta = self.client.post(
             reverse('usuarios:login'), {'username': 'novo_aluno', 'password': 'Senha-Forte-2026'},
         )
-        self.assertRedirects(resposta, reverse('questoes:lista_questoes'))
+        self.assertRedirects(resposta, reverse('programacao:home'))
 
     def test_banco_impede_email_repetido(self):
         get_user_model().objects.create_user('primeiro', email='repetido@exemplo.com')
@@ -124,7 +124,7 @@ class CadastroTests(TestCase):
     def test_usuario_logado_e_redirecionado(self):
         usuario = get_user_model().objects.create_user('aluno', password='senha-forte-123')
         self.client.force_login(usuario)
-        self.assertRedirects(self.client.get(self.url), reverse('questoes:lista_questoes'))
+        self.assertRedirects(self.client.get(self.url), reverse('programacao:home'))
 
 
 class RecuperarSenhaTests(TestCase):
