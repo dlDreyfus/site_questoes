@@ -5,6 +5,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
+from .forms import TAMANHO_MAXIMO_CSV
 from .importacao import atualizar_csv, importar_csv
 from .models import HistoricoResolucao, Questao
 from .tests_importacao import LINHA_CE, LINHA_ME, planilha
@@ -248,6 +249,25 @@ class AtualizacaoPaginaTests(TestCase):
             'acao': 'atualizacao', 'atualizacao-arquivo': SimpleUploadedFile('vazio.csv', b'', content_type='text/csv'),
         })
         self.assertTrue(vazio.context['form_atualizacao'].errors)
+
+    def test_limite_de_tamanho_e_20_mb_nos_dois_envios(self):
+        self.assertEqual(TAMANHO_MAXIMO_CSV, 20 * 1024 * 1024)
+        pagina = self.client.get(self.url)
+        self.assertContains(pagina, '(até 20 MB)')
+        self.assertContains(pagina, 'de até 20 MB')
+
+        def erros(acao, tamanho):
+            campo = 'atualizacao-arquivo' if acao == 'atualizacao' else 'arquivo'
+            arquivo = SimpleUploadedFile('grande.csv', b'x' * tamanho, content_type='text/csv')
+            resposta = self.client.post(self.url, {'acao': acao, campo: arquivo})
+            form = resposta.context['form_atualizacao' if acao == 'atualizacao' else 'form']
+            return ' '.join(form.errors.get('arquivo', []))
+
+        for acao in ('novas', 'atualizacao'):
+            with self.subTest(acao=acao):
+                # 6 MB passava do limite antigo (5 MB); agora passa no formulário (o conteúdo é que é inválido)
+                self.assertNotIn('limite', erros(acao, 6 * 1024 * 1024))
+                self.assertIn('o limite é 20,0\xa0MB', erros(acao, TAMANHO_MAXIMO_CSV + 1))
 
     def test_envio_de_novas_continua_igual(self):
         resposta = self.client.post(self.url, {'acao': 'novas', 'arquivo': planilha(LINHA_ME)}, follow=True)
