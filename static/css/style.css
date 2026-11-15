@@ -1774,3 +1774,766 @@ body.pagina-login {
         transition: none !important;
     }
 }
+
+/* ==========================================================================
+   Home: barra fixa no topo, barra lateral com os apps e abas com o app aberto
+   No celular a barra lateral vira uma faixa horizontal abaixo do topo;
+   a partir do tablet ela fica na vertical, à esquerda.
+   ========================================================================== */
+body.pagina-home {
+    --altura-topo: 56px;
+    --altura-lateral: 72px;
+    --largura-lateral: 0px;
+}
+
+.home-topo {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: var(--altura-topo);
+    padding: 0 var(--espaco-lateral);
+    background: var(--cor-superficie);
+    box-shadow: var(--sombra);
+}
+
+/* Espaço de anúncios no estilo MS-DOS da tela de login (.terminal-dos), em tamanho menor para caber
+   na barra. A caixa fica centralizada no espaço à esquerda do menu (as margens automáticas dividem a
+   sobra) e encolhe quando falta espaço: o texto quebra e as linhas seguem alinhadas à esquerda,
+   como num terminal */
+.home-anuncio {
+    flex: 0 1 auto;
+    min-width: 0;
+    margin: 0 auto;
+    padding: 4px 10px;
+    font-size: 0.62rem;
+    line-height: 1.25;
+}
+
+.home-topo .topo-menu {
+    /* Não encolhe: quem se ajusta ao espaço é o anúncio */
+    flex: none;
+    flex-wrap: nowrap;
+}
+
+/* No celular não cabe a saudação ao lado do anúncio: fica só o Sair */
+@media (max-width: 575.98px) {
+    .home-topo .topo-usuario {
+        display: none;
+    }
+}
+
+@media (min-width: 768px) {
+    .home-anuncio {
+        font-size: 0.8rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .home-anuncio {
+        font-size: 0.9rem;
+    }
+}
+
+.home-topo .topo-usuario {
+    flex: 0 1 auto;
+    max-width: 220px;
+}
+
+.home-topo .btn-limpar {
+    min-height: 36px;
+    padding: 6px 14px;
+}
+
+.home-lateral {
+    position: fixed;
+    top: var(--altura-topo);
+    left: 0;
+    right: 0;
+    z-index: 10;
+    display: flex;
+    gap: 6px;
+    height: var(--altura-lateral);
+    padding: 4px var(--espaco-lateral);
+    overflow-x: auto;
+    background: var(--cor-superficie);
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+.home-lateral-link {
+    /* Cor do robô e do balão de cada app */
+    --robo-cor: var(--cor-primaria);
+    --robo-cor-escura: var(--cor-primaria-escura);
+    --robo-fundo: #e7f1ff;
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 4px;
+    border: 2px solid transparent;
+    border-radius: var(--raio);
+    color: var(--cor-texto);
+    text-decoration: none;
+}
+
+.robo-link-programacao {
+    --robo-cor: var(--cor-sucesso);
+    --robo-cor-escura: var(--cor-sucesso-escura);
+    --robo-fundo: #e6f4ea;
+}
+
+.home-lateral-link:hover {
+    background: var(--cor-hover);
+}
+
+/* Robô sendo arrastado para trocar de posição. touch-callout: o iPhone não abre o menu do link ao segurar */
+.home-lateral-link {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.home-lateral-link.arrastando {
+    opacity: 0.6;
+    cursor: grabbing;
+}
+
+/* App da aba ativa: fundo e borda na cor do robô */
+.home-lateral-link.ativo {
+    background: var(--robo-fundo);
+    border-color: var(--robo-cor);
+}
+
+/* ---------- Mini robôs da barra lateral ---------- */
+.robo {
+    flex: none;
+    width: 44px;
+    height: 52px;
+    overflow: visible;
+    transition: transform 0.2s;
+}
+
+.home-lateral-link:hover .robo {
+    transform: scale(1.08);
+}
+
+.robo-cor { fill: var(--robo-cor); }
+.robo-cor-escura { fill: var(--robo-cor-escura); }
+.robo-claro { fill: #fff; }
+.robo-escuro { fill: #2b2f33; }
+.robo-metal { fill: #b8c1cb; }
+.robo-tampa { fill: #8f9aa5; }
+.robo-lapis { fill: #f5b301; }
+.robo-pixel { fill: #7dffa0; }
+
+.robo-haste {
+    stroke: #7a8590;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+}
+
+.robo-sorriso {
+    fill: none;
+    stroke: #2b2f33;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.robo-check {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.robo-codigo {
+    fill: #fff;
+    font: bold 8px ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* Animações. transform-box: view-box faz o transform-origin usar as coordenadas do desenho (viewBox 80x80) */
+.robo-corpo,
+.robo-braco-acenando {
+    transform-box: view-box;
+}
+
+.robo-link-questoes .robo-corpo {
+    animation: robo-pular 1.4s ease-in-out infinite;
+}
+
+.robo-link-programacao .robo-corpo {
+    transform-origin: 40px 70px;
+    animation: robo-balancar 2.4s ease-in-out infinite;
+}
+
+.robo-braco-acenando {
+    transform-origin: 58px 50px;
+    animation: robo-acenar 1s ease-in-out infinite;
+}
+
+.robo-olhos {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: robo-piscar 3.5s infinite;
+}
+
+.robo-link-programacao .robo-olhos {
+    animation-delay: 1.2s;
+}
+
+.robo-antena-luz {
+    animation: robo-luz 1.2s ease-in-out infinite;
+}
+
+.robo-antena-luz-2 {
+    animation-delay: 0.6s;
+}
+
+.robo-braco-esq,
+.robo-braco-dir {
+    animation: robo-digitar 0.35s ease-in-out infinite;
+}
+
+.robo-braco-dir {
+    animation-delay: 0.175s;
+}
+
+.robo-cursor {
+    animation: robo-cursor 1s steps(1) infinite;
+}
+
+@keyframes robo-pular {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+@keyframes robo-balancar {
+    0%, 100% { transform: rotate(-4deg); }
+    50% { transform: rotate(4deg); }
+}
+
+@keyframes robo-acenar {
+    0%, 100% { transform: rotate(-12deg); }
+    50% { transform: rotate(16deg); }
+}
+
+@keyframes robo-piscar {
+    0%, 92%, 100% { transform: scaleY(1); }
+    96% { transform: scaleY(0.1); }
+}
+
+@keyframes robo-luz {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+@keyframes robo-digitar {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2.5px); }
+}
+
+@keyframes robo-cursor {
+    0% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+/* Balão de fala: no celular fica à direita do robô (com a ponta para a esquerda);
+   a partir do tablet fica acima dele (com a ponta para baixo) */
+.robo-balao {
+    position: relative;
+    order: 1;
+    min-width: 0;
+    padding: 3px 6px;
+    border: 2px solid var(--robo-cor);
+    border-radius: 10px;
+    background: var(--cor-superficie);
+    color: var(--cor-texto);
+    font-size: 0.6rem;
+    font-weight: 800;
+    line-height: 1.25;
+    /* Em tela muito estreita, palavra longa quebra em vez de vazar do balão */
+    overflow-wrap: anywhere;
+}
+
+/* Celular bem estreito (320px): letra menor, para "PROGRAMAÇÃO" caber inteira no balão */
+@media (max-width: 359.98px) {
+    .home-lateral-link {
+        gap: 4px;
+        padding: 4px 2px;
+    }
+
+    .robo {
+        width: 36px;
+    }
+
+    .robo-balao {
+        padding: 3px 5px;
+        font-size: 0.54rem;
+    }
+}
+
+/* A ponta do balão são dois triângulos: o de fora com a cor da borda e o de dentro com o fundo */
+.robo-balao::before,
+.robo-balao::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    border-style: solid;
+    border-color: transparent;
+}
+
+.robo-balao::before {
+    left: -9px;
+    margin-top: -6px;
+    border-width: 6px 9px 6px 0;
+    border-right-color: var(--robo-cor);
+}
+
+.robo-balao::after {
+    left: -5px;
+    margin-top: -4px;
+    border-width: 4px 6px 4px 0;
+    border-right-color: var(--cor-superficie);
+}
+
+/* Área das abas: ocupa todo o espaço que sobra, e o app rola dentro do próprio iframe */
+.home-area {
+    position: fixed;
+    top: calc(var(--altura-topo) + var(--altura-lateral));
+    left: var(--largura-lateral);
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.home-abas {
+    display: flex;
+    gap: 2px;
+    padding: 6px var(--espaco-lateral) 0;
+    overflow-x: auto;
+    background: var(--cor-hover);
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+.home-aba {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--raio-pequeno) var(--raio-pequeno) 0 0;
+    background: transparent;
+    color: var(--cor-texto-suave);
+    font: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.home-aba:hover {
+    background: var(--cor-superficie);
+}
+
+.home-aba.ativa {
+    position: relative;
+    top: 1px;
+    background: var(--cor-fundo);
+    border-color: var(--cor-borda);
+    color: var(--cor-texto);
+    font-weight: bold;
+}
+
+/* Aba sendo arrastada para mudar de lugar */
+.home-aba[data-app] {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.home-aba.arrastando {
+    opacity: 0.6;
+    cursor: grabbing;
+}
+
+.home-aba-fechar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    font-weight: normal;
+    line-height: 1;
+}
+
+.home-aba-fechar:hover {
+    background: var(--cor-borda);
+}
+
+.home-paineis {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+}
+
+.home-painel {
+    display: none;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.home-painel.ativo {
+    display: block;
+}
+
+.home-iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+/* Página aberta numa aba da Home: a marca, o nome do usuário e o Sair já estão na barra da Home */
+.embutido .topo-marca,
+.embutido .topo-usuario,
+.embutido .topo-sair {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    body.pagina-home {
+        --altura-lateral: 0px;
+        --largura-lateral: 200px;
+    }
+
+    .home-lateral {
+        right: auto;
+        bottom: 0;
+        flex-direction: column;
+        width: var(--largura-lateral);
+        height: auto;
+        padding: 16px 12px;
+        overflow-x: visible;
+        overflow-y: auto;
+        gap: 16px;
+        border-bottom: none;
+        border-right: 1px solid var(--cor-borda);
+    }
+
+    /* Robô embaixo e balão em cima, centralizados */
+    .home-lateral-link {
+        flex: none;
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px 8px 8px;
+    }
+
+    .robo {
+        width: 88px;
+        height: 88px;
+    }
+
+    .robo-balao {
+        order: 0;
+        padding: 6px 10px;
+        font-size: 0.72rem;
+        letter-spacing: 0.02em;
+        text-align: center;
+    }
+
+    .robo-balao::before,
+    .robo-balao::after {
+        top: auto;
+        left: 50%;
+        margin-top: 0;
+    }
+
+    .robo-balao::before {
+        bottom: -10px;
+        margin-left: -7px;
+        border-width: 10px 7px 0;
+        border-color: var(--robo-cor) transparent transparent;
+    }
+
+    .robo-balao::after {
+        bottom: -6px;
+        margin-left: -5px;
+        border-width: 7px 5px 0;
+        border-color: var(--cor-superficie) transparent transparent;
+    }
+}
+
+/* Quem pede ao sistema menos movimento vê os robôs parados */
+@media (prefers-reduced-motion: reduce) {
+    .robo *,
+    .robo {
+        animation: none !important;
+    }
+}
+
+/* ==========================================================================
+   Página em construção (templates/em_construcao.html)
+   Cartão com faixas zebradas de obra em cima e embaixo, um mini robô de capacete
+   martelando tijolos, engrenagens girando e uma barra de progresso sem fim.
+   ========================================================================== */
+.construcao {
+    --construcao-amarelo: #f5b301;
+    --construcao-amarelo-escuro: #d99a00;
+    --construcao-laranja: #fd7e14;
+    max-width: 560px;
+    margin: 8px auto 0;
+    overflow: hidden;
+    background: var(--cor-superficie);
+    border-radius: var(--raio);
+    box-shadow: 0 10px 30px rgba(13, 110, 253, 0.12), var(--sombra);
+    text-align: center;
+}
+
+/* Faixa de obra amarela e preta, andando para o lado */
+.construcao-faixa {
+    height: 14px;
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--construcao-amarelo) 0 14px,
+        #2b2f33 14px 28px
+    );
+    background-size: 40px 40px;
+    animation: construcao-faixa 1.2s linear infinite;
+}
+
+.construcao-corpo {
+    padding: 24px var(--espaco-lateral) 28px;
+}
+
+.construcao-cena {
+    display: block;
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    margin: 0 auto 8px;
+    overflow: visible;
+}
+
+/* Selo "EM CONSTRUÇÃO" com um ponto piscando, como uma luz de obra */
+.construcao-selo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: #fff4d1;
+    color: #8a5a00;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.construcao-selo-ponto {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--construcao-laranja);
+    animation: construcao-piscar 1s ease-in-out infinite;
+}
+
+/* Título com degradê nas cores do site */
+.construcao-titulo {
+    margin: 0 0 12px;
+    background: linear-gradient(90deg, var(--cor-primaria), var(--cor-sucesso));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: var(--cor-primaria);
+    -webkit-text-fill-color: transparent;
+}
+
+.construcao-texto {
+    max-width: 420px;
+    margin: 0 auto 20px;
+    color: var(--cor-texto-suave);
+}
+
+/* Barra de progresso sem fim: um trecho em degradê correndo de um lado ao outro */
+.construcao-progresso {
+    position: relative;
+    max-width: 320px;
+    height: 10px;
+    margin: 0 auto 24px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--cor-borda);
+}
+
+.construcao-progresso-barra {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 40%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--construcao-amarelo), var(--construcao-laranja));
+    animation: construcao-progresso 1.6s ease-in-out infinite;
+}
+
+/* Dentro de uma aba da Home não precisa do botão de voltar */
+.embutido .construcao-voltar {
+    display: none;
+}
+
+/* Cores do desenho */
+.construcao-robo-cor { fill: var(--cor-primaria); }
+.construcao-robo-cor-escura { fill: var(--cor-primaria-escura); }
+.construcao-capacete { fill: var(--construcao-amarelo); }
+.construcao-capacete-aba { fill: var(--construcao-amarelo-escuro); }
+.construcao-cabo { fill: #8b5a2b; }
+.construcao-cabeca-martelo { fill: var(--cor-secundaria); }
+.construcao-cone { fill: var(--construcao-laranja); }
+.construcao-cone-faixa { fill: #fff; }
+.construcao-luz { fill: #7dffa0; }
+
+.construcao-chao {
+    stroke: var(--cor-borda-forte);
+    stroke-width: 3;
+    stroke-linecap: round;
+}
+
+.construcao-tijolos rect {
+    fill: #e8743b;
+    stroke: #fff;
+    stroke-width: 1.5;
+}
+
+.engrenagem-dentes {
+    fill: none;
+    stroke: var(--cor-borda);
+    stroke-width: 9;
+    stroke-dasharray: 7 6.8;
+}
+
+.engrenagem-dentes-pequena {
+    stroke-width: 7;
+    stroke-dasharray: 5 5.2;
+}
+
+.engrenagem-roda { fill: var(--cor-borda); }
+.engrenagem-furo { fill: var(--cor-superficie); }
+
+.construcao-faiscas line {
+    stroke: var(--construcao-amarelo);
+    stroke-width: 3;
+    stroke-linecap: round;
+}
+
+/* Animações do desenho (coordenadas do viewBox 220x160) */
+.construcao-engrenagem {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: construcao-girar 6s linear infinite;
+}
+
+.construcao-engrenagem-inversa {
+    animation-direction: reverse;
+    animation-duration: 4s;
+}
+
+.construcao-robo {
+    transform-box: view-box;
+    transform-origin: 110px 144px;
+    animation: construcao-quicar 0.8s ease-in-out infinite;
+}
+
+.construcao-martelo {
+    transform-box: view-box;
+    transform-origin: 130px 104px;
+    animation: construcao-martelar 0.8s ease-in infinite;
+}
+
+.construcao-faiscas {
+    opacity: 0;
+    animation: construcao-faiscas 0.8s ease-out infinite;
+}
+
+.construcao-tijolo-novo {
+    transform-box: fill-box;
+    transform-origin: center bottom;
+    animation: construcao-tijolo 0.8s ease-in infinite;
+}
+
+.construcao-olhos {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: robo-piscar 3.5s infinite;
+}
+
+.construcao-luz {
+    animation: robo-luz 0.9s ease-in-out infinite;
+}
+
+.construcao-luz-2 {
+    animation-delay: 0.3s;
+}
+
+.construcao-luz-3 {
+    animation-delay: 0.6s;
+}
+
+@keyframes construcao-faixa {
+    to { background-position: 40px 0; }
+}
+
+@keyframes construcao-progresso {
+    0% { left: -40%; }
+    100% { left: 100%; }
+}
+
+@keyframes construcao-piscar {
+    50% { opacity: 0.25; }
+}
+
+@keyframes construcao-girar {
+    to { transform: rotate(360deg); }
+}
+
+/* O martelo sobe devagar e desce rápido; a batida (e as faíscas) acontece aos 60% */
+@keyframes construcao-martelar {
+    0%, 100% { transform: rotate(-35deg); }
+    55% { transform: rotate(-38deg); }
+    60% { transform: rotate(12deg); }
+    70% { transform: rotate(8deg); }
+}
+
+@keyframes construcao-faiscas {
+    0%, 58% { opacity: 0; }
+    62% { opacity: 1; }
+    80%, 100% { opacity: 0; }
+}
+
+@keyframes construcao-tijolo {
+    0%, 58%, 100% { transform: scaleY(1); }
+    62% { transform: scaleY(0.85); }
+}
+
+@keyframes construcao-quicar {
+    0%, 100% { transform: translateY(0); }
+    60% { transform: translateY(1.5px); }
+}
+
+/* Quem pede ao sistema menos movimento vê a cena parada */
+@media (prefers-reduced-motion: reduce) {
+    .construcao *,
+    .construcao-faixa {
+        animation: none !important;
+    }
+
+    .construcao-faiscas {
+        opacity: 1;
+    }
+}

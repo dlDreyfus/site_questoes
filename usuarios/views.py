@@ -11,7 +11,7 @@ from questoes.models import HistoricoResolucao, Materia, Questao, Simulado, Topi
 from .forms import CadastroUsuarioForm
 
 
-# Cadastro de novo usuário: cria a conta já ativa, faz o login e leva para as questões
+# Cadastro de novo usuário: cria a conta já ativa, faz o login e leva para a Home
 def cadastro(request):
     # Quem já está logado não precisa se cadastrar de novo
     if request.user.is_authenticated:

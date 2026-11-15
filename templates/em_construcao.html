@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{# Página em construção, para usar em qualquer app enquanto a página de verdade não fica pronta: #}
+{# render(request, 'em_construcao.html'). O título e a mensagem podem vir da view (titulo e mensagem); #}
+{# sem eles, aparecem os textos padrão. A cena é um mini robô de capacete martelando, no estilo dos #}
+{# robôs da Home, animado no style.css (parado para quem pede ao sistema menos movimento). #}
+
+{% block title %}{{ titulo|default:"Em construção" }}{% endblock %}
+
+{% block content %}
+<section class="construcao">
+    <div class="construcao-faixa" aria-hidden="true"></div>
+
+    <div class="construcao-corpo">
+        <svg class="construcao-cena" viewBox="0 0 220 160" aria-hidden="true" focusable="false">
+            {# Engrenagens girando ao fundo: os dentes são o tracejado de um círculo de borda grossa #}
+            <g class="construcao-engrenagem">
+                <circle cx="44" cy="42" r="22" class="engrenagem-dentes"/>
+                <circle cx="44" cy="42" r="18" class="engrenagem-roda"/>
+                <circle cx="44" cy="42" r="7" class="engrenagem-furo"/>
+            </g>
+            <g class="construcao-engrenagem construcao-engrenagem-inversa">
+                <circle cx="76" cy="22" r="13" class="engrenagem-dentes engrenagem-dentes-pequena"/>
+                <circle cx="76" cy="22" r="10" class="engrenagem-roda"/>
+                <circle cx="76" cy="22" r="4" class="engrenagem-furo"/>
+            </g>
+
+            <line x1="8" y1="146" x2="212" y2="146" class="construcao-chao"/>
+
+            {# Cone de trânsito #}
+            <polygon points="26,144 36,104 40,104 50,144" class="construcao-cone"/>
+            <polygon points="31,124 35,110 41,110 45,124" class="construcao-cone-faixa"/>
+            <rect x="20" y="142" width="36" height="5" rx="2" class="construcao-cone"/>
+
+            {# Pilha de tijolos que o robô está montando #}
+            <g class="construcao-tijolos">
+                <rect x="160" y="132" width="22" height="12" rx="2"/>
+                <rect x="184" y="132" width="22" height="12" rx="2"/>
+                <rect x="172" y="118" width="22" height="12" rx="2"/>
+                <rect x="172" y="104" width="22" height="12" rx="2" class="construcao-tijolo-novo"/>
+            </g>
+
+            {# Mini robô de capacete #}
+            <g class="construcao-robo">
+                <rect x="98" y="128" width="9" height="16" rx="3" class="robo-metal"/>
+                <rect x="113" y="128" width="9" height="16" rx="3" class="robo-metal"/>
+                <rect x="70" y="100" width="22" height="9" rx="4.5" class="robo-metal"/>
+                <rect x="90" y="96" width="40" height="34" rx="8" class="construcao-robo-cor-escura"/>
+                <circle cx="102" cy="112" r="3" class="construcao-luz"/>
+                <circle cx="110" cy="112" r="3" class="construcao-luz construcao-luz-2"/>
+                <circle cx="118" cy="112" r="3" class="construcao-luz construcao-luz-3"/>
+                <rect x="105" y="90" width="10" height="6" class="robo-metal"/>
+                <rect x="88" y="58" width="44" height="34" rx="9" class="construcao-robo-cor"/>
+                <rect x="94" y="65" width="32" height="20" rx="5" class="robo-claro"/>
+                <g class="construcao-olhos">
+                    <circle cx="103" cy="74" r="3" class="robo-escuro"/>
+                    <circle cx="117" cy="74" r="3" class="robo-escuro"/>
+                </g>
+                <path d="M105 79 q5 4 10 0" class="robo-sorriso"/>
+                {# Capacete #}
+                <path d="M86 61 a24 21 0 0 1 48 0 z" class="construcao-capacete"/>
+                <rect x="82" y="58" width="56" height="6" rx="3" class="construcao-capacete-aba"/>
+                <rect x="107" y="42" width="6" height="16" rx="3" class="construcao-capacete-aba"/>
+                {# Braço com o martelo, que bate no tijolo de cima #}
+                <g class="construcao-martelo">
+                    <rect x="128" y="100" width="24" height="9" rx="4.5" class="robo-metal"/>
+                    <rect x="147" y="82" width="5" height="28" rx="2" class="construcao-cabo"/>
+                    <rect x="140" y="76" width="20" height="10" rx="2" class="construcao-cabeca-martelo"/>
+                </g>
+            </g>
+
+            {# Faíscas da martelada #}
+            <g class="construcao-faiscas">
+                <line x1="168" y1="98" x2="162" y2="92"/>
+                <line x1="176" y1="95" x2="176" y2="87"/>
+                <line x1="184" y1="98" x2="190" y2="92"/>
+            </g>
+        </svg>
+
+        <p class="construcao-selo"><span class="construcao-selo-ponto" aria-hidden="true"></span>Em construção</p>
+        <h1 class="construcao-titulo">{{ titulo|default:"Estamos construindo esta página" }}</h1>
+        <p class="construcao-texto">
+            {{ mensagem|default:"Nossos robôs estão trabalhando a todo vapor para deixar tudo pronto. Volte em breve para conferir a novidade!" }}
+        </p>
+
+        <div class="construcao-progresso" role="progressbar" aria-label="Construção em andamento">
+            <span class="construcao-progresso-barra"></span>
+        </div>
+
+        {# Dentro de uma aba da Home o botão some (a Home já está em volta) #}
+        {% if user.is_authenticated %}
+        <a href="{% url 'programacao:home' %}" class="btn-desempenho construcao-voltar">Voltar para a Home</a>
+        {% endif %}
+    </div>
+
+    <div class="construcao-faixa" aria-hidden="true"></div>
+</section>
+{% endblock %}
